@@ -165,6 +165,31 @@
   .potion-icon.used { opacity: 0.2; filter: grayscale(1); }
   .seer-result-box { margin-top: 15px; padding: 10px; background: rgba(var(--primary-rgb), 0.1); border-radius: 8px; border: 1px solid var(--primary); }
   .seer-result-box span { font-weight: bold; color: var(--primary); }
+
+  /* Mobile improvements for role pool */
+  @media (max-width: 520px) {
+    #setup-pool-grid {
+      flex-direction: column;
+      gap: 12px;
+    }
+    .role-card {
+      max-height: 240px;
+      padding: 10px;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .setup-item {
+      padding: 10px 8px;
+    }
+    .counter-controls {
+      gap: 12px;
+    }
+    .counter-btn {
+      width: 38px;
+      height: 38px;
+      font-size: 20px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -354,6 +379,20 @@ const I18N = {
     wake_alpha_wolf: "Alpha Wolf, wake up. You may choose one villager to secretly convert to your side tonight.",
     wake_bloody_mary_revenge: "Bloody Mary, you have seen the wolves. Choose your target for revenge.",
     log_lynch: "{name} was lynched.", log_kill: "{name} killed by {source}.",
+    hist_game_started: "Game Started.",
+    hist_manual_override: "Manual override: {name} is now {state}.",
+    hist_protected: "{name} was protected from attack.",
+    hist_wolves_targeted: "Werewolves targeted {name}.",
+    hist_alpha_convert_success: "Werewolves converted {name} into a Werewolf.",
+    hist_alpha_convert_fail_protected: "Alpha conversion FAILED on {name} (protected).",
+    hist_alpha_convert_fail_cupid_kill_protected: "Alpha conversion->kill FAILED on {name} (protected).",
+    hist_alpha_convert_hit_cupid_kill: "Alpha conversion hit Cupid team — {name} dies instead.",
+    hist_alpha_convert_fail_cupid: "Alpha conversion FAILED on {name} (Cupid team).",
+    hist_alpha_convert_fail_revealed_prince: "Alpha conversion FAILED on {name} (revealed Prince).",
+    hist_cursed_turn: "{name} was bitten (Cursed) and turned into a Werewolf.",
+    hist_bm_revenge_armed: "Bloody Mary revenge armed ({rule} next night).",
+    hist_witch_heal_wasted: "Witch used healing potion on {name}, but it had no effect.",
+    hist_dw_dies_too: "{name} (Dire Wolf) also dies because their lover died.",
     game_over: "Game Over! {team} wins!", seer_wolf: "Wolf", seer_human: "Human", unmapped: "?",
     reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:"
   },
@@ -378,6 +417,20 @@ const I18N = {
     wake_alpha_wolf: "Sói đầu đàn, thức dậy. Chọn một dân làng để bí mật chuyển sang phe sói.",
     wake_bloody_mary_revenge: "Bloody Mary, bạn đã nhìn thấy lũ sói. Chọn mục tiêu để trả thù.",
     log_lynch: "{name} đã bị treo cổ.", log_kill: "{name} bị giết bởi {source}.",
+    hist_game_started: "Trò chơi bắt đầu.",
+    hist_manual_override: "Can thiệp thủ công: {name} hiện đang {state}.",
+    hist_protected: "{name} đã được bảo vệ khỏi tấn công.",
+    hist_wolves_targeted: "Ma sói nhắm vào {name}.",
+    hist_alpha_convert_success: "{name} đã bị chuyển thành Ma sói.",
+    hist_alpha_convert_fail_protected: "Chuyển phe thất bại với {name} (được bảo vệ).",
+    hist_alpha_convert_fail_cupid_kill_protected: "Chuyển phe→giết thất bại với {name} (được bảo vệ).",
+    hist_alpha_convert_hit_cupid_kill: "Chuyển phe trúng đội Cupid — {name} chết thay vì bị chuyển.",
+    hist_alpha_convert_fail_cupid: "Chuyển phe thất bại với {name} (đội Cupid).",
+    hist_alpha_convert_fail_revealed_prince: "Chuyển phe thất bại với {name} (Hoàng tử đã lộ).",
+    hist_cursed_turn: "{name} bị cắn (Kẻ bị nguyền) và hóa thành Ma sói.",
+    hist_bm_revenge_armed: "Bloody Mary đã kích hoạt trả thù ({rule} đêm sau).",
+    hist_witch_heal_wasted: "Phù thủy dùng bình cứu cho {name} nhưng không có tác dụng.",
+    hist_dw_dies_too: "{name} (Sói đau khổ) cũng chết vì người yêu chết.",
     game_over: "Trò chơi kết thúc! {team} thắng!", seer_wolf: "Sói", seer_human: "Người", unmapped: "?",
     reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:"
   }
@@ -694,7 +747,7 @@ function startGame() {
   STATE.lastSpellcasterSilencedId = null;
   STATE.deathsThisNight = [];
   
-  addHistory("system", "Game Started.");
+  addHistoryT("system", "hist_game_started");
   STATE.day = 0.5;
   STATE.phaseStep = 0;
   STATE.powerDone = false;
@@ -955,7 +1008,10 @@ function killPlayer(id, reason) {
     // - If she dies in the morning (lynch / hunter shot / wolf cub revenge), she must kill a VILLAGER (non-wolf) on the next night.
     const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
     STATE.bloodyMaryRevenge = { mustTargetTeam: isMorningDeath ? 'non_wolf' : 'wolf', mustTargetSource: isMorningDeath ? 'morning' : 'night' };
-    addHistory("system", `Bloody Mary revenge armed (${STATE.bloodyMaryRevenge.mustTargetTeam === 'wolf' ? 'must kill a WOLF' : 'must kill a NON-WOLF'} next night).`);
+    const ruleStr = STATE.bloodyMaryRevenge.mustTargetTeam === 'wolf'
+      ? (STATE.lang === 'vi' ? 'phải giết SÓI' : 'must kill a WOLF')
+      : (STATE.lang === 'vi' ? 'phải giết NGƯỜI (không phải sói)' : 'must kill a NON-WOLF');
+    addHistoryT("system", "hist_bm_revenge_armed", { rule: ruleStr });
   }
   
   // Alpha Wolf trigger: only when a wolf dies IN THE MORNING (lynch / hunter shot / wolf cub revenge, etc),
@@ -971,7 +1027,7 @@ function killPlayer(id, reason) {
   if (dw) {
     const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
     if (isMorningDeath) {
-      addHistory("system", `${dw.name} (Dire Wolf) also dies because their lover died.`);
+      addHistoryT("system", "hist_dw_dies_too", { name: dw.name });
       showToast(`${dw.name} (Dire Wolf) also dies!`);
     }
     killPlayer(dw.id, "dire wolf anchor died");
@@ -1020,7 +1076,7 @@ function resolveSunrise() {
     let bypassesProtection = (d.source === 'witch_poison' || d.source === 'revealer');
     
     if (p.protected && !bypassesProtection) {
-      addHistory("system", `${p.name} was protected from attack.`);
+      addHistoryT("system", "hist_protected", { name: p.name });
     } else {
       actualDeaths.push(d);
     }
@@ -1239,21 +1295,21 @@ function confirmAction() {
           if (blockedByCupid) {
             // If wolves try to convert Cupid/couple (including Cursed couple), they die instead.
             if (p && p.protected) {
-              addHistory("wolf", `Alpha conversion->kill FAILED on ${p.name} (protected).`);
+              addHistoryT("wolf", "hist_alpha_convert_fail_cupid_kill_protected", { name: p.name });
             } else if (p) {
-              addHistory("wolf", `Alpha conversion hit Cupid team — ${p.name} dies instead.`);
+              addHistoryT("wolf", "hist_alpha_convert_hit_cupid_kill", { name: p.name });
               STATE.nightDeaths.push({ id: p.id, source: 'wolf' });
             }
           } else if (blockedPrince) {
-            addHistory("wolf", `Alpha conversion FAILED on ${p.name} (revealed Prince).`);
+            addHistoryT("wolf", "hist_alpha_convert_fail_revealed_prince", { name: p.name });
           } else if (p && p.protected) {
-            addHistory("wolf", `Alpha conversion FAILED on ${p.name} (protected).`);
+            addHistoryT("wolf", "hist_alpha_convert_fail_protected", { name: p.name });
           } else if (p) {
             p.alphaWolfConverted = true;
             p.originalRole = p.originalRole || p.role;
             p.role = 'werewolf';
             p.icon = ROLES['werewolf'].emoji;
-            addHistory("wolf", `Werewolves converted ${p.name} into a Werewolf.`);
+            addHistoryT("wolf", "hist_alpha_convert_success", { name: p.name });
           }
         } else {
           // Cursed conversion happens immediately on bite (unless protected beforehand, or Cupid/couple).
@@ -1263,9 +1319,9 @@ function confirmAction() {
             p.originalRole = p.originalRole || 'cursed';
             p.role = 'werewolf';
             p.icon = ROLES['werewolf'].emoji;
-            addHistory("wolf", `${p.name} was bitten (Cursed) and turned into a Werewolf.`);
+            addHistoryT("wolf", "hist_cursed_turn", { name: p.name });
           } else {
-            addHistory("wolf", `Werewolves targeted ${p.name}`);
+            addHistoryT("wolf", "hist_wolves_targeted", { name: p.name });
             // Hide Tough Guy bite from Witch the bite night
             const hideFromWitch = (p && p.role === 'tough_guy' && !p.toughGuyBitten);
             STATE.nightDeaths.push({id: p.id, source: 'wolf', hiddenFromWitch: !!hideFromWitch});
@@ -1441,7 +1497,7 @@ function healTarget(id) {
   if (p.role === 'tough_guy') {
     pushUndo();
     STATE.witchHealUsed = true;
-    addHistory("system", `Witch used healing potion on ${p.name}, but it had no effect.`);
+    addHistoryT("system", "hist_witch_heal_wasted", { name: p.name });
     saveState();
     return;
   }
@@ -1458,11 +1514,14 @@ function toggleDeadManual(id) {
   pushUndo();
   let p = STATE.players.find(x=>x.id===id);
   p.isDead = !p.isDead;
-  addHistory("system", `Manual override: ${p.name} is now ${p.isDead ? 'Dead' : 'Alive'}.`);
+  addHistoryT("system", "hist_manual_override", { name: p.name, state: p.isDead ? (STATE.lang === 'vi' ? 'Chết' : 'Dead') : (STATE.lang === 'vi' ? 'Sống' : 'Alive') });
   saveState();
 }
 
 function addHistory(type, msg) { STATE.history.push({type, msg, time: new Date().toLocaleTimeString()}); }
+function addHistoryT(type, key, vars = {}) {
+  STATE.history.push({ type, key, vars, time: new Date().toLocaleTimeString() });
+}
 
 // --- UI UPDATES ---
 function updateUI() {
@@ -1698,7 +1757,11 @@ function updateHistory() {
   const log = document.getElementById('history-log');
   log.innerHTML = '';
   [...STATE.history].reverse().forEach(h => {
-    let div = document.createElement('div'); div.className = `history-item ${h.type}`; div.innerText = `[${h.time}] ${h.msg}`; log.appendChild(div);
+    let div = document.createElement('div');
+    div.className = `history-item ${h.type}`;
+    const rendered = h.key ? (t(h.key, h.vars || {}) || h.key) : h.msg;
+    div.innerText = `[${h.time}] ${rendered}`;
+    log.appendChild(div);
   });
 }
 
