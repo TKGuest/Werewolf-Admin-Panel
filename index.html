@@ -120,7 +120,7 @@
     
     .history-log { display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 13px;}
     .history-item { background: var(--bg-surface); padding: 8px; border-radius: 4px; border-left: 3px solid var(--primary); }
-    .history-item.death { border-left-color: var(--danger); }
+    .history-item.death { border-left-color: var(--danger) !important; border-left-width: 5px; }
     .history-item.system { border-left-color: var(--text-muted); opacity: 0.8; }
     .history-item.important { border-left-color: var(--primary) !important; border-left-width: 5px; opacity: 1; }
     .history-item.important strong { color: var(--text); }
@@ -1032,7 +1032,7 @@ function killPlayer(id, reason) {
 
   p.isDead = true;
   if (!STATE.deathsThisNight.includes(p.name)) STATE.deathsThisNight.push(p.name);
-  const isImportant = ['lynch', 'huntress', 'hunter revenge', 'wolf cub revenge', 'revealer', 'witch_poison', 'bloody_mary', 'revealer_fail'].includes(reason);
+  const isImportant = ['lynch', 'huntress', 'hunter revenge', 'wolf cub revenge', 'revealer', 'witch_poison', 'bloody_mary', 'revealer_fail', 'chupacabra'].includes(reason);
   addHistory("death", t('log_kill', {name: p.name, source: t(reason) || reason}), isImportant);
   if (p.role === 'hunter') STATE.hunterPendingShot.push(p.id);
   if (p.role === 'wolf_cub') STATE.wolfCubPendingShot.push(p.id);
@@ -1379,7 +1379,7 @@ function confirmAction() {
             p.icon = ROLES['werewolf'].emoji;
             addHistoryT("wolf", "hist_cursed_turn", { name: p.name });
           } else {
-            addHistoryT("wolf", "hist_wolves_targeted", { name: p.name }, true);
+            addHistoryT("death", "hist_wolves_targeted", { name: p.name }, true);
             // Hide Tough Guy bite from Witch the bite night
             const hideFromWitch = (p && p.role === 'tough_guy' && !p.toughGuyBitten);
             STATE.nightDeaths.push({id: p.id, source: 'wolf', hiddenFromWitch: !!hideFromWitch});
@@ -1398,7 +1398,7 @@ function confirmAction() {
     if (STATE.selectedTargets.length === 1 && actor) {
       let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
       STATE.nightDeaths.push({id: p.id, source: 'witch_poison'}); STATE.witchPoisonUsed = true;
-      addHistoryT("system", "hist_witch_poison", { name: p.name }, true);
+      addHistoryT("death", "hist_witch_poison", { name: p.name }, true);
     }
     actionTaken = true;
   }
@@ -1408,7 +1408,7 @@ function confirmAction() {
       let isWolf = p.role && (ROLES[p.role].team === 'wolf' || p.role === 'lycan' || p.cursedBitten) && p.role !== 'wolf_man';
       let result = isWolf ? t('seer_wolf') : t('seer_human');
       STATE.seerResult = { name: p.name, res: result };
-      addHistoryT("wolf", "hist_seer_inspect", { name: p.name, result });
+      addHistoryT("system", "hist_seer_inspect", { name: p.name, result }, true);
       STATE.selectedTargets = [];
       saveState();
       return;
@@ -1425,7 +1425,7 @@ function confirmAction() {
       if (actor) {
         let htarget = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         STATE.nightDeaths.push({id: htarget.id, source: 'huntress'}); STATE.huntressUsed = true;
-        addHistoryT("system", "hist_huntress_shot", { name: htarget.name }, true);
+        addHistoryT("death", "hist_huntress_shot", { name: htarget.name }, true);
       }
       actionTaken = true;
     } else {
@@ -1470,7 +1470,7 @@ function confirmAction() {
         if (anyWolfAlive) {
           if (p.role && (ROLES[p.role].team === 'wolf' || p.role === 'wolf_pending')) {
             STATE.nightDeaths.push({id: p.id, source: 'chupacabra'});
-            addHistoryT("system", "hist_chupacabra_kill", { name: p.name }, true);
+            addHistoryT("death", "hist_chupacabra_kill", { name: p.name }, true);
           } else {
             addHistoryT("system", "hist_chupacabra_fail", { name: p.name }, true);
           }
@@ -1785,7 +1785,7 @@ function updatePanel() {
     instrEl.style.display = 'none';
   }
 
-  let canSkip = (phase.type === 'night' && !phase.mapping && !['spellcaster', 'cupid', 'bloody_mary_revenge'].includes(phase.role));
+  let canSkip = (phase.type === 'night' && !phase.mapping && !['spellcaster', 'cupid', 'bloody_mary_revenge', 'dire_wolf'].includes(phase.role));
   document.getElementById('btn-skip').style.display = canSkip ? 'block' : 'none';
   confirmBtn.style.display = (phase.type === 'night' || phase.type === 'hunter_revenge' || phase.type === 'wolf_cub_revenge') ? 'block' : 'none';
 
