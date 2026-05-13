@@ -407,7 +407,9 @@ const I18N = {
     hist_lynch: "Village lynched {name}.",
     hist_lynch_none: "Village decided not to lynch anyone.",
     game_over: "Game Over! {team} wins!", seer_wolf: "Wolf", seer_human: "Human", unmapped: "?",
-    reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:"
+    reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:",
+    death_heartbreak: "heartbreak", death_delayed: "fatal wound (delayed)", death_dw_anchor: "Dire Wolf anchor died",
+    death_revealer_fail: "Revealer failed", death_revenge: "revenge"
   },
   vi: {
     registry: "Thiết lập", panel: "Bảng đ.khiển", history: "Lịch sử", notepad: "Ghi chú",
@@ -458,7 +460,9 @@ const I18N = {
     hist_lynch: "Làng đã treo cổ {name}.",
     hist_lynch_none: "Làng quyết định không treo cổ ai.",
     game_over: "Trò chơi kết thúc! {team} thắng!", seer_wolf: "Sói", seer_human: "Người", unmapped: "?",
-    reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:"
+    reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:",
+    death_heartbreak: "thất tình (chết theo người yêu)", death_delayed: "vết thương chí mạng (trì hoãn)", death_dw_anchor: "người yêu của Sói đau khổ đã chết",
+    death_revealer_fail: "Người khám phá thất bại", death_revenge: "trả thù"
   }
 };
 
@@ -809,11 +813,11 @@ const PHASE_ORDER = [
     // Special wolves: refine 1 wolf_pending into this specific role, then power (if any)
     // Alpha Wolf is refined on Night 1, but its "convert" power is executed by the werewolves group
     // on the night after a wolf dies in the morning (and only if Alpha Wolf is alive).
-    { role: 'alpha_wolf',       map: true,  power: false },
+    { role: 'alpha_wolf',       map: false, power: false },
     { role: 'dire_wolf',        map: true,  power: true  },
-    { role: 'wolf_man',         map: true,  power: false },
-    { role: 'wolf_cub',         map: true,  power: false },
-    { role: 'fang_face',        map: true,  power: false },
+    { role: 'wolf_man',         map: false, power: false },
+    { role: 'wolf_cub',         map: false, power: false },
+    { role: 'fang_face',        map: false, power: false },
     { role: 'spellcaster',      map: true,  power: true  },
     { role: 'witch',            map: true,  power: true  },
     { role: 'seer',             map: true,  power: true  },
@@ -980,7 +984,7 @@ function killPlayer(id, reason) {
         // This runs during sunrise resolution (STATE.day is already an integer morning),
         // so schedule death at next integer day.
         p.toughGuyBitten = Math.floor(STATE.day) + 1;
-        addHistory("death", t('log_kill', {name: p.name, source: "fatal wound (delayed)"}));
+        addHistory("death", t('log_kill', {name: p.name, source: t('death_delayed')}));
         return; 
     }
   }
@@ -1012,7 +1016,7 @@ function killPlayer(id, reason) {
     STATE.alphaWolfTriggered = true;
   }
   
-  p.lovers.forEach(lid => killPlayer(lid, "heartbreak"));
+  p.lovers.forEach(lid => killPlayer(lid, t('death_heartbreak')));
   let dw = STATE.players.find(x => x.role === 'dire_wolf' && x.direWolfTarget === id && !x.isDead);
   if (dw) {
     const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
@@ -1020,7 +1024,7 @@ function killPlayer(id, reason) {
       addHistoryT("system", "hist_dw_dies_too", { name: dw.name });
       showToast(`${dw.name} (Dire Wolf) also dies!`);
     }
-    killPlayer(dw.id, "dire wolf anchor died");
+    killPlayer(dw.id, t('death_dw_anchor'));
   }
 }
 
