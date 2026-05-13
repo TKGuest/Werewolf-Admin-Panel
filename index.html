@@ -395,7 +395,7 @@ const I18N = {
     hist_dw_dies_too: "{name} (Dire Wolf) also dies because their lover died.",
     hist_cupid_match: "Cupid matched {p1} and {p2} as Lovers.",
     hist_bodyguard_protect: "Bodyguard chose to protect {name} tonight.",
-    hist_dire_wolf_lover: "Dire Wolf chose {name} as their lover.",
+    hist_dire_wolf_lover: "Dire Wolf ({actor}) chose {name} as their lover.",
     hist_spellcaster_silence: "Spellcaster silenced {name}.",
     hist_wolf_identified: "{name} is identified as {role}.",
     hist_seer_inspect: "Seer inspected {name}: {result}.",
@@ -404,6 +404,8 @@ const I18N = {
     hist_revealer_not_wolf: "Revealer revealed {name} — NOT a wolf! Revealer will die instead.",
     hist_witch_heal: "Witch used healing potion to save {name}.",
     hist_witch_poison: "Witch poisoned {name}.",
+    hist_lynch: "Village lynched {name}.",
+    hist_lynch_none: "Village decided not to lynch anyone.",
     game_over: "Game Over! {team} wins!", seer_wolf: "Wolf", seer_human: "Human", unmapped: "?",
     reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:"
   },
@@ -444,7 +446,7 @@ const I18N = {
     hist_dw_dies_too: "{name} (Sói đau khổ) cũng chết vì người yêu chết.",
     hist_cupid_match: "Cupid kết đôi {p1} và {p2} thành Người yêu.",
     hist_bodyguard_protect: "Bảo vệ chọn bảo vệ {name} đêm nay.",
-    hist_dire_wolf_lover: "Sói đau khổ chọn {name} làm người yêu.",
+    hist_dire_wolf_lover: "Sói đau khổ ({actor}) chọn {name} làm người yêu.",
     hist_spellcaster_silence: "Pháp sư câm khóa miệng {name}.",
     hist_wolf_identified: "{name} được xác định là {role}.",
     hist_seer_inspect: "Tiên tri soi {name}: {result}.",
@@ -453,6 +455,8 @@ const I18N = {
     hist_revealer_not_wolf: "Người khám phá lật mặt {name} — không phải sói! Người khám phá sẽ chết thay.",
     hist_witch_heal: "Phù thủy dùng thuốc cứu {name}.",
     hist_witch_poison: "Phù thủy dùng thuốc độc với {name}.",
+    hist_lynch: "Làng đã treo cổ {name}.",
+    hist_lynch_none: "Làng quyết định không treo cổ ai.",
     game_over: "Trò chơi kết thúc! {team} thắng!", seer_wolf: "Sói", seer_human: "Người", unmapped: "?",
     reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:"
   }
@@ -964,23 +968,6 @@ function getCurrentPhaseData() {
 
 
 
-
-
-function healTarget(id) {
-  pushUndo();
-  STATE.nightDeaths = STATE.nightDeaths.filter(d => d.id !== id);
-  STATE.witchHealUsed = true;
-  saveState();
-}
-
-function poisonTarget(id) {
-  pushUndo();
-  STATE.nightDeaths.push({id, source: 'witch_poison'});
-  STATE.witchPoisonUsed = true;
-  STATE.selectedTargets = [];
-  saveState();
-}
-
 function killPlayer(id, reason) {
   let p = STATE.players.find(x => x.id === id);
   if (!p || p.isDead) return;
@@ -1000,7 +987,8 @@ function killPlayer(id, reason) {
 
   p.isDead = true;
   if (!STATE.deathsThisNight.includes(p.name)) STATE.deathsThisNight.push(p.name);
-  addHistory("death", t('log_kill', {name: p.name, source: reason}));
+  const isImportant = ['lynch', 'huntress', 'hunter revenge', 'wolf cub revenge', 'revealer', 'witch_poison', 'bloody_mary'].includes(reason);
+  addHistory("death", t('log_kill', {name: p.name, source: reason}), isImportant);
   if (p.role === 'hunter') STATE.hunterPendingShot.push(p.id);
   if (p.role === 'wolf_cub') STATE.wolfCubPendingShot.push(p.id);
 
@@ -1103,10 +1091,12 @@ function processMorningLynching() {
     let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
     
     if (p.role === 'prince') {
+      addHistoryT("system", "hist_lynch", { name: p.name }, true);
       addHistory("system", `${p.name} (Prince) survives lynch.`);
       p.princeRevealed = true;
       showAlert("Prince Revealed", `${p.name} is Prince. They live.`);
     } else {
+      addHistoryT("system", "hist_lynch", { name: p.name }, true);
       killPlayer(p.id, 'lynch');
       if (p.role === 'tanner') { STATE.gameOver = true; STATE.winningTeam = "Tanner"; saveState(); return; }
     }
@@ -1124,6 +1114,7 @@ function skipMorning() {
   // Clear one-night effects as we go to sleep
   STATE.players.forEach(p => p.silenced = false);
   pushUndo();
+  addHistoryT("system", "hist_lynch_none", {}, true);
   STATE.day += 0.5; STATE.phaseStep = 0; STATE.powerDone = false; STATE.nightDeaths = []; STATE.players.forEach(p => p.protected = false); saveState();
 }
 
@@ -1168,7 +1159,9 @@ function confirmAction() {
           return showToast('You must select a Wolf Team member (wolf_pending).');
         p.role = phase.mapRole; p.originalRole = phase.mapRole;
         p.icon = ROLES[p.role]?.emoji || '';
-        addHistoryT("system", "hist_wolf_identified", { name: p.name, role: getRoleName(phase.mapRole) });
+        if (phase.mapRole === 'dire_wolf') {
+          addHistoryT("system", "hist_wolf_identified", { name: p.name, role: getRoleName(phase.mapRole) });
+        }
       });
     } else {
       // Normal role assignment
@@ -1247,7 +1240,7 @@ function confirmAction() {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         if (p.role && ROLES[p.role].team === 'wolf') return showToast("Dire Wolf cannot choose another wolf!");
         actor.direWolfTarget = p.id;
-        addHistoryT("system", "hist_dire_wolf_lover", { name: p.name });
+        addHistoryT("system", "hist_dire_wolf_lover", { actor: actor.name, name: p.name });
       }
       actionTaken = true;
     } else {
@@ -1347,7 +1340,7 @@ function confirmAction() {
     if (STATE.selectedTargets.length === 1 && actor) {
       let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
       STATE.nightDeaths.push({id: p.id, source: 'witch_poison'}); STATE.witchPoisonUsed = true;
-      addHistoryT("system", "hist_witch_poison", { name: p.name });
+      addHistoryT("system", "hist_witch_poison", { name: p.name }, true);
     }
     actionTaken = true;
   }
@@ -1374,7 +1367,7 @@ function confirmAction() {
       if (actor) {
         let htarget = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         STATE.nightDeaths.push({id: htarget.id, source: 'huntress'}); STATE.huntressUsed = true;
-        addHistoryT("system", "hist_huntress_shot", { name: htarget.name });
+        addHistoryT("system", "hist_huntress_shot", { name: htarget.name }, true);
       }
       actionTaken = true;
     } else {
@@ -1387,10 +1380,10 @@ function confirmAction() {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         if (p.role && ROLES[p.role].team === 'wolf') {
           STATE.nightDeaths.push({id: p.id, source: 'revealer'});
-          addHistoryT("system", "hist_revealer_wolf", { name: p.name });
+          addHistoryT("system", "hist_revealer_wolf", { name: p.name }, true);
         } else {
           STATE.nightDeaths.push({id: actor.id, source: 'revealer_fail'});
-          addHistoryT("system", "hist_revealer_not_wolf", { name: p.name });
+          addHistoryT("system", "hist_revealer_not_wolf", { name: p.name }, true);
         }
       }
       actionTaken = true;
@@ -1513,7 +1506,7 @@ function healTarget(id) {
   if (p.role === 'tough_guy') {
     pushUndo();
     STATE.witchHealUsed = true;
-    addHistoryT("system", "hist_witch_heal_wasted", { name: p.name });
+    addHistoryT("system", "hist_witch_heal_wasted", { name: p.name }, true);
     saveState();
     return;
   }
@@ -1522,9 +1515,21 @@ function healTarget(id) {
     pushUndo();
     STATE.nightDeaths.splice(idx, 1);
     STATE.witchHealUsed = true;
-    addHistoryT("system", "hist_witch_heal", { name: p.name });
+    addHistoryT("system", "hist_witch_heal", { name: p.name }, true);
     saveState();
   }
+}
+
+function poisonTarget(id) {
+  if (STATE.witchPoisonUsed) return;
+  let p = STATE.players.find(x => x.id === id);
+  if (!p) return;
+  pushUndo();
+  STATE.nightDeaths.push({id: p.id, source: 'witch_poison'});
+  STATE.witchPoisonUsed = true;
+  STATE.selectedTargets = [];
+  addHistoryT("system", "hist_witch_poison", { name: p.name }, true);
+  saveState();
 }
 
 function toggleDeadManual(id) {
@@ -1535,9 +1540,18 @@ function toggleDeadManual(id) {
   saveState();
 }
 
-function addHistory(type, msg) { STATE.history.push({type, msg, time: new Date().toLocaleTimeString()}); }
-function addHistoryT(type, key, vars = {}) {
-  STATE.history.push({ type, key, vars, time: new Date().toLocaleTimeString() });
+function addHistory(type, msg, important = false) { 
+  STATE.history.push({type, msg, important, time: new Date().toLocaleTimeString()}); 
+}
+function addHistoryT(type, key, vars = {}, important = false) {
+  if (key === 'hist_seer_inspect') {
+    // If the last entry was also a seer inspection, replace it (overwrite)
+    let last = STATE.history[STATE.history.length - 1];
+    if (last && last.key === 'hist_seer_inspect') {
+      STATE.history.pop();
+    }
+  }
+  STATE.history.push({ type, key, vars, important, time: new Date().toLocaleTimeString() });
 }
 
 // --- UI UPDATES ---
@@ -1783,7 +1797,7 @@ function updateHistory() {
     let div = document.createElement('div');
     div.className = `history-item ${h.type}`;
     const rendered = h.key ? (t(h.key, h.vars || {}) || h.key) : h.msg;
-    div.innerText = `[${h.time}] ${rendered}`;
+    div.innerHTML = h.important ? `<strong>[${h.time}] ${rendered}</strong>` : `[${h.time}] ${rendered}`;
     log.appendChild(div);
   });
 }
