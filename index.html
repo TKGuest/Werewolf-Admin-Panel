@@ -356,7 +356,12 @@ const ROLES = {
   dire_wolf: { en: "Dire Wolf", vi: "Sói đau khổ", score: -4, team: "wolf", emoji: "🖤" },
   wolf_cub: { en: "Wolf Cub", vi: "Sói trẻ", score: -8, team: "wolf", emoji: "🐺🐾", recognitionOnly: true },
   wolf_man: { en: "Wolf Man", vi: "Người sói", score: -9, team: "wolf", emoji: "👤🐺", recognitionOnly: true },
-  alpha_wolf: { en: "Alpha Wolf", vi: "Sói đầu đàn", score: -9, team: "wolf", emoji: "🐺👑" }
+  alpha_wolf: { en: "Alpha Wolf", vi: "Sói đầu đàn", score: -9, team: "wolf", emoji: "🐺👑" },
+  beholder: { en: "Beholder", vi: "Kẻ si tình", score: 2, team: "village", emoji: "🤩", recognitionOnly: true },
+  priest: { en: "Priest", vi: "Mục sư", score: 3, team: "village", emoji: "🙏" },
+  chupacabra: { en: "Chupacabra", vi: "Quỷ hút máu", score: 4, team: "neutral", emoji: "🧛‍♂️" },
+  lone_wolf: { en: "Lone Wolf", vi: "Sói đơn độc", score: -5, team: "wolf", emoji: "🐺🕶️", recognitionOnly: true },
+  vampire: { en: "Vampire", vi: "Ma cà rồng", score: -7, team: "neutral", emoji: "🧛" }
 };
 
 const I18N = {
@@ -375,11 +380,15 @@ const I18N = {
     wake_spellcaster: "Spellcaster, wake up. Choose one person to silence for tomorrow morning.",
     wake_werewolves_group: "Werewolves, wake up. Choose your victim.",
     wake_witch: "Witch, wake up. These players will die tonight {names}. Will you use your healing potion or your poison tonight?",
-    wake_seer: "Seer, wake up. Choose one person to inspect. Nod is wolf, shake is not wolf. [Result: {res}]",
+    wake_seer: "Seer and Beholder, wake up. Seer, choose one person to inspect. Beholder, see the Seer and their sighting. Nod is wolf, shake is not wolf. [Result: {res}]",
     wake_huntress: "Huntress, wake up. You have one shot. Will you use it tonight to kill a player?",
     wake_revealer: "Revealer, wake up. You may choose one person to reveal. If they are a wolf, they die. If they are not, you die.",
     wake_alpha_wolf: "Alpha Wolf, wake up. You may choose one villager to secretly convert to your side tonight.",
     wake_bloody_mary_revenge: "Bloody Mary, you have seen the wolves. Choose your target for revenge.",
+    wake_priest: "Priest, wake up. Choose one person to be immune to night attacks for the rest of the game.",
+    wake_chupacabra: "Chupacabra, wake up. Choose one person. If they are a wolf, they die. If all wolves are dead, you may kill anyone.",
+    wake_vampire: "Vampire, wake up. Choose one person to die after tomorrow's lynch vote.",
+    vampire_announcement: "As the sun begins to set, {name} suddenly collapses — the Vampire has claimed their victim!",
     log_lynch: "{name} was lynched.", log_kill: "{name} killed by {source}.",
     revealer_fail: "revealer failure",
     hist_game_started: "Game Started.",
@@ -411,6 +420,10 @@ const I18N = {
     hist_lynch_none: "Village decided not to lynch anyone.",
     game_over: "Game Over! {team} wins!", seer_wolf: "Wolf", seer_human: "Human", unmapped: "?",
     seer_is: "is:",
+    hist_priest_protect: "Priest blessed {name} with permanent night protection.",
+    hist_chupacabra_kill: "Chupacabra killed {name}!",
+    hist_chupacabra_fail: "Chupacabra targeted {name} but failed (not a wolf).",
+    hist_vampire_mark: "Vampire marked {name}.",
     reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:",
     death_heartbreak: "heartbreak", death_delayed: "fatal wound (delayed)", death_dw_anchor: "Dire Wolf anchor died",
     death_revealer_fail: "Revealer failed", death_revenge: "revenge"
@@ -430,11 +443,15 @@ const I18N = {
     wake_spellcaster: "Pháp sư câm, hãy thức dậy. Chọn một người để khóa miệng.",
     wake_werewolves_group: "Ma sói, hãy thức dậy. Chọn nạn nhân của các bạn.",
     wake_witch: "Phù thủy, hãy thức dậy. Sắp chết: {names}. Dùng thuốc?",
-    wake_seer: "Tiên tri, thức dậy. Soi một người. [Kết quả: {res}]",
+    wake_seer: "Tiên tri và Kẻ si tình, thức dậy. Tiên tri soi một người. Kẻ si tình, hãy nhìn Tiên tri. [Kết quả: {res}]",
     wake_huntress: "Nữ thợ săn, thức dậy. Bạn có muốn bắn không?",
     wake_revealer: "Người khám phá, thức dậy. Lật mặt một người.",
     wake_alpha_wolf: "Sói đầu đàn, thức dậy. Chọn một dân làng để bí mật chuyển sang phe sói.",
     wake_bloody_mary_revenge: "Bloody Mary, bạn đã nhìn thấy lũ sói. Chọn mục tiêu để trả thù.",
+    wake_priest: "Mục sư, thức dậy. Chọn một người để bảo vệ khỏi các cuộc tấn công ban đêm vĩnh viễn.",
+    wake_chupacabra: "Quỷ hút máu, thức dậy. Chọn một người. Nếu là sói, họ sẽ chết. Nếu sói đã hết, bạn có thể giết bất kỳ ai.",
+    wake_vampire: "Ma cà rồng, thức dậy. Chọn một người sẽ chết sau khi bỏ phiếu treo cổ ngày mai.",
+    vampire_announcement: "Khi mặt trời lặn, {name} bỗng nhiên gục xuống — Ma cà rồng đã lấy mạng nạn nhân!",
     log_lynch: "{name} đã bị treo cổ.", log_kill: "{name} bị giết bởi {source}.",
     revealer_fail: "người khám phá thất bại",
     hist_game_started: "Trò chơi bắt đầu.",
@@ -466,6 +483,10 @@ const I18N = {
     hist_lynch_none: "Làng quyết định không treo cổ ai.",
     game_over: "Trò chơi kết thúc! {team} thắng!", seer_wolf: "Sói", seer_human: "Người", unmapped: "?",
     seer_is: "là:",
+    hist_priest_protect: "{name} đã được Mục sư ban phước bảo vệ vĩnh viễn.",
+    hist_chupacabra_kill: "Quỷ hút máu đã giết {name}!",
+    hist_chupacabra_fail: "Quỷ hút máu tấn công {name} nhưng thất bại (không phải sói).",
+    hist_vampire_mark: "Ma cà rồng đã đánh dấu {name}.",
     reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:",
     death_heartbreak: "thất tình (chết theo người yêu)", death_delayed: "vết thương chí mạng (trì hoãn)", death_dw_anchor: "người yêu của Sói đau khổ đã chết",
     death_revealer_fail: "Người khám phá thất bại", death_revenge: "trả thù"
@@ -498,7 +519,8 @@ let STATE = {
   selectedTargets: [],
   gameOver: false,
   winningTeam: "",
-  notepad: ""
+  notepad: "",
+  vampireTarget: null
 };
 
 let PRESETS = [];
@@ -766,7 +788,7 @@ function startGame() {
     id: 'p'+i, name, role: null, originalRole: null, isDead: false, silenced: false,
     protected: false, lovers: [], tannerLover: false, cursedBitten: false, toughGuyBitten: 0,
     alphaWolfConverted: false, direWolfTarget: null,
-    princeRevealed: false
+    princeRevealed: false, priestProtected: false
   }));
   STATE.nightDeaths = [];
   STATE.hunterPendingShot = [];
@@ -782,6 +804,7 @@ function startGame() {
   STATE.lastBodyguardProtectedId = null;
   STATE.lastSpellcasterSilencedId = null;
   STATE.deathsThisNight = [];
+  STATE.vampireTarget = null;
   
   addHistoryT("system", "hist_game_started");
   STATE.day = 0.5;
@@ -829,6 +852,10 @@ const PHASE_ORDER = [
     { role: 'seer',             map: true,  power: true  },
     { role: 'huntress',         map: true,  power: true  },
     { role: 'revealer',         map: true,  power: true  },
+    { role: 'priest',           map: true,  power: true  },
+    { role: 'beholder',         map: true,  power: false },
+    { role: 'vampire',          map: true,  power: true  },
+    { role: 'chupacabra',       map: true,  power: true  },
     { role: 'bloody_mary_revenge', map: false, power: true, displayName: 'Bloody Mary Revenge' }
 ];
 
@@ -858,6 +885,12 @@ function getCurrentPhaseData() {
 
       // Dire Wolf: choose lover only once on the first night
       if (step.role === 'dire_wolf' && STATE.day !== 0.5) { stepIdx++; continue; }
+      
+      // Priest: only once on the first night
+      if (step.role === 'priest' && STATE.day !== 0.5) { stepIdx++; continue; }
+      
+      // Beholder: mapping only on the first night
+      if (step.role === 'beholder' && STATE.day !== 0.5) { stepIdx++; continue; }
 
       // Bloody Mary Revenge: only if she actually died
       if (step.role === 'bloody_mary_revenge') {
@@ -958,6 +991,9 @@ function getCurrentPhaseData() {
         else if (step.role === 'seer')               instruction = 'Select 1 player to inspect';
         else if (step.role === 'huntress')           instruction = 'Select 1 victim to kill (Confirm with no target to skip)';
         else if (step.role === 'revealer')           instruction = 'Select 1 player to reveal';
+        else if (step.role === 'priest')             instruction = 'Select 1 player to protect PERMANENTLY (not self)';
+        else if (step.role === 'chupacabra')         instruction = 'Select 1 player to hunt';
+        else if (step.role === 'vampire')            instruction = 'Select 1 player to die tomorrow night';
         else if (step.role === 'bloody_mary_revenge') instruction = 'Select 1 victim for revenge';
 
         return {
@@ -1075,7 +1111,7 @@ function resolveSunrise() {
     // Revealer and Witch Poison bypass normal protection
     let bypassesProtection = (d.source === 'witch_poison' || d.source === 'revealer');
     
-    if (p.protected && !bypassesProtection) {
+    if ((p.protected || p.priestProtected) && !bypassesProtection) {
       addHistoryT("system", "hist_protected", { name: p.name });
     } else {
       actualDeaths.push(d);
@@ -1111,6 +1147,7 @@ function processMorningLynching() {
       if (p.role === 'tanner') { STATE.gameOver = true; STATE.winningTeam = "Tanner"; saveState(); return; }
     }
     STATE.selectedTargets = [];
+    resolveVampireKill();
   }
   checkGameOver();
   if (!STATE.gameOver) {
@@ -1125,7 +1162,19 @@ function skipMorning() {
   STATE.players.forEach(p => p.silenced = false);
   pushUndo();
   addHistoryT("system", "hist_lynch_none", {}, true);
+  resolveVampireKill();
   STATE.day += 0.5; STATE.phaseStep = 0; STATE.powerDone = false; STATE.nightDeaths = []; STATE.players.forEach(p => p.protected = false); saveState();
+}
+
+function resolveVampireKill() {
+  if (STATE.vampireTarget) {
+    let p = STATE.players.find(x => x.id === STATE.vampireTarget);
+    if (p && !p.isDead) {
+      showAlert("Vampire Attack", t('vampire_announcement', { name: p.name }));
+      killPlayer(p.id, "vampire");
+    }
+    STATE.vampireTarget = null;
+  }
 }
 
 function skipAction() {
@@ -1401,6 +1450,53 @@ function confirmAction() {
         return showToast('Select 1 player to reveal.');
     }
   }
+  else if (r === 'priest') {
+    if (STATE.selectedTargets.length === 1) {
+      if (actor) {
+        let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
+        if (p.id === actor.id) return showToast("Priest cannot protect themselves!");
+        p.priestProtected = true;
+        addHistoryT("system", "hist_priest_protect", { name: p.name }, true);
+      }
+      actionTaken = true;
+    } else {
+        return showToast('Select 1 player to bless.');
+    }
+  }
+  else if (r === 'chupacabra') {
+    if (STATE.selectedTargets.length === 1) {
+      if (actor) {
+        let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
+        let anyWolfAlive = STATE.players.some(x => !x.isDead && (ROLES[x.role]?.team === 'wolf' || x.role === 'wolf_pending'));
+        if (anyWolfAlive) {
+          if (p.role && (ROLES[p.role].team === 'wolf' || p.role === 'wolf_pending')) {
+            STATE.nightDeaths.push({id: p.id, source: 'chupacabra'});
+            addHistoryT("system", "hist_chupacabra_kill", { name: p.name }, true);
+          } else {
+            addHistoryT("system", "hist_chupacabra_fail", { name: p.name }, true);
+          }
+        } else {
+          STATE.nightDeaths.push({id: p.id, source: 'chupacabra'});
+          addHistoryT("system", "hist_chupacabra_kill", { name: p.name }, true);
+        }
+      }
+      actionTaken = true;
+    } else {
+        return showToast('Select 1 player to hunt.');
+    }
+  }
+  else if (r === 'vampire') {
+    if (STATE.selectedTargets.length === 1) {
+      if (actor) {
+        let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
+        STATE.vampireTarget = p.id;
+        addHistoryT("system", "hist_vampire_mark", { name: p.name }, true);
+      }
+      actionTaken = true;
+    } else {
+        return showToast('Select 1 player to mark.');
+    }
+  }
   else if (r === 'bloody_mary_revenge') {
     if (STATE.selectedTargets.length === 1) {
       let bm = STATE.players.find(p => p.role === 'bloody_mary' && p.isDead);
@@ -1450,15 +1546,37 @@ function checkGameOver() {
   let deadTanner = STATE.players.find(p => p.role === 'tanner' && p.isDead);
   // Actually Tanner win is only if lynched. handled in lynch.
   
-  // 2. Wolves win if they outnumber or equal non-wolves
-  if (wolves >= nonWolves && wolves > 0) { 
-    STATE.gameOver = true; 
-    STATE.winningTeam = "Werewolves"; 
+  // 2. Solo roles win check (Chupacabra, Vampire, Lone Wolf)
+  let totalAlive = STATE.players.filter(p => !p.isDead).length;
+  let alivePlayers = STATE.players.filter(p => !p.isDead);
+  
+  if (totalAlive === 1) {
+    let last = alivePlayers[0];
+    if (last.role === 'chupacabra') { STATE.gameOver = true; STATE.winningTeam = "Chupacabra"; saveState(); return; }
+    if (last.role === 'vampire') { STATE.gameOver = true; STATE.winningTeam = "Vampire"; saveState(); return; }
+    if (last.role === 'lone_wolf') { STATE.gameOver = true; STATE.winningTeam = "Lone Wolf"; saveState(); return; }
   }
-  // 3. Village win if all wolves are dead
+
+  // 3. Wolves win if they outnumber or equal non-wolves
+  // BUT if a Lone Wolf, Chupacabra, or Vampire is alive, they block standard team wins until they are the only ones left
+  let hasSoloRole = STATE.players.some(p => !p.isDead && ['lone_wolf', 'chupacabra', 'vampire'].includes(p.role));
+  
+  if (wolves >= nonWolves && wolves > 0) {
+    if (hasSoloRole) {
+      // Game continues if a solo threat is still present
+    } else {
+      STATE.gameOver = true; 
+      STATE.winningTeam = "Werewolves"; 
+    }
+  }
+  // 4. Village win if all wolves are dead
   else if (wolves === 0) { 
-    STATE.gameOver = true; 
-    STATE.winningTeam = "Village"; 
+    if (hasSoloRole) {
+      // Game continues if Chupacabra or Vampire is still present
+    } else {
+      STATE.gameOver = true; 
+      STATE.winningTeam = "Village"; 
+    }
   }
 
   if (STATE.gameOver) {
