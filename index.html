@@ -837,7 +837,10 @@ const PHASE_ORDER = [
     { role: 'hunter',           map: true,  power: false },
     { role: 'apprentice_seer',  map: true,  power: false },
     { role: 'bodyguard',        map: true,  power: true  },
-    // werewolves_group: map=true means Night 1 assigns ALL wolves as wolf_pending, then they kill
+    { role: 'priest',           map: true,  power: true  },
+    { role: 'beholder',         map: true,  power: false },
+    { role: 'vampire',          map: true,  power: true  },
+    { role: 'chupacabra',       map: true,  power: true  },
     { role: 'werewolves_group', map: true,  power: true,  displayName: 'Werewolves' },
     // Special wolves: refine 1 wolf_pending into this specific role, then power (if any)
     // Alpha Wolf is refined on Night 1, but its "convert" power is executed by the werewolves group
@@ -852,10 +855,6 @@ const PHASE_ORDER = [
     { role: 'seer',             map: true,  power: true  },
     { role: 'huntress',         map: true,  power: true  },
     { role: 'revealer',         map: true,  power: true  },
-    { role: 'priest',           map: true,  power: true  },
-    { role: 'beholder',         map: true,  power: false },
-    { role: 'vampire',          map: true,  power: true  },
-    { role: 'chupacabra',       map: true,  power: true  },
     { role: 'bloody_mary_revenge', map: false, power: true, displayName: 'Bloody Mary Revenge' }
 ];
 
@@ -1885,7 +1884,7 @@ function updatePanel() {
         }
 
         let nameHtml = `<strong>${p.name}</strong>`;
-        let statusHtml = (p.protected ? '🛡️' : '') + (p.silenced ? '🤫' : '') + (p.princeRevealed ? '👑' : '') + (p.lovers && p.lovers.length > 0 ? '❤️' : '');
+        let statusHtml = (p.protected ? '🛡️' : '') + (p.priestProtected ? '♾️' : '') + (p.silenced ? '🤫' : '') + (p.princeRevealed ? '👑' : '') + (p.lovers && p.lovers.length > 0 ? '❤️' : '');
         // Dire Wolf lover icon
         let dwLover = STATE.players.find(dw => dw.role === 'dire_wolf' && dw.direWolfTarget === p.id);
         if (dwLover) statusHtml += '🖤';
