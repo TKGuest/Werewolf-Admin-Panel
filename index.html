@@ -410,6 +410,7 @@ const I18N = {
     hist_lynch: "Village lynched {name}.",
     hist_lynch_none: "Village decided not to lynch anyone.",
     game_over: "Game Over! {team} wins!", seer_wolf: "Wolf", seer_human: "Human", unmapped: "?",
+    seer_is: "is:",
     reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:",
     death_heartbreak: "heartbreak", death_delayed: "fatal wound (delayed)", death_dw_anchor: "Dire Wolf anchor died",
     death_revealer_fail: "Revealer failed", death_revenge: "revenge"
@@ -464,6 +465,7 @@ const I18N = {
     hist_lynch: "Làng đã treo cổ {name}.",
     hist_lynch_none: "Làng quyết định không treo cổ ai.",
     game_over: "Trò chơi kết thúc! {team} thắng!", seer_wolf: "Sói", seer_human: "Người", unmapped: "?",
+    seer_is: "là:",
     reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:",
     death_heartbreak: "thất tình (chết theo người yêu)", death_delayed: "vết thương chí mạng (trì hoãn)", death_dw_anchor: "người yêu của Sói đau khổ đã chết",
     death_revealer_fail: "Người khám phá thất bại", death_revenge: "trả thù"
@@ -1235,7 +1237,7 @@ function confirmAction() {
           return showToast("Bodyguard can't protect the same person twice in a row.");
         let p = STATE.players.find(x=>x.id===targetId); p.protected = true;
         STATE.lastBodyguardProtectedId = targetId;
-        addHistoryT("system", "hist_bodyguard_protect", { name: p.name });
+        addHistoryT("system", "hist_bodyguard_protect", { name: p.name }, true);
       }
       actionTaken = true;
     } else {
@@ -1248,7 +1250,7 @@ function confirmAction() {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         if (p.role && ROLES[p.role].team === 'wolf') return showToast("Dire Wolf cannot choose another wolf!");
         actor.direWolfTarget = p.id;
-        addHistoryT("system", "hist_dire_wolf_lover", { actor: actor.name, name: p.name });
+        addHistoryT("system", "hist_dire_wolf_lover", { actor: actor.name, name: p.name }, true);
       }
       actionTaken = true;
     } else {
@@ -1717,7 +1719,7 @@ function updatePanel() {
         </div>`;
       }
       if ((phase.role === 'seer' || phase.role === 'apprentice_seer') && STATE.seerResult) {
-        quoteEl.innerHTML += `<div class="seer-result-box">${STATE.seerResult.name} is: <span>${STATE.seerResult.res}</span></div>`;
+        quoteEl.innerHTML += `<div class="seer-result-box">${STATE.seerResult.name} ${t('seer_is')} <span>${STATE.seerResult.res}</span></div>`;
       }
       if (phase.type === 'hunter_revenge') {
         quoteEl.innerText = `Hunter (${phase.name}), take your final shot!`;
