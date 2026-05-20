@@ -976,6 +976,12 @@ function getCurrentPhaseData() {
 
       // ── Power step ─────────────────────────────────────────────────────────
       if (step.power && !STATE.powerDone) {
+        // Skip power step if the role's player is dead (prevents stuck UI for seer/revealer)
+        if (!['werewolves_group', 'bloody_mary_revenge'].includes(step.role)) {
+          const rolePlayer = STATE.players.find(p => p.role === step.role && !p.isDead);
+          if (!rolePlayer) { stepIdx++; continue; }
+        }
+
         let displayName = step.displayName || getRoleName(step.role);
         let instruction = '';
         if (step.role === 'cupid')                   instruction = 'Select 2 players to be Lovers';
@@ -1041,9 +1047,10 @@ function killPlayer(id, reason) {
 
   if (p.role === 'bloody_mary') {
     // Bloody Mary revenge rules:
-    // - If she dies at night (any source), she must kill a WOLF on the next night.
-    // - If she dies in the morning (lynch / hunter shot / wolf cub revenge), she must kill a VILLAGER (non-wolf) on the next night.
-    const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
+    // - If she dies at night (any source, including hunter shot), she must kill a WOLF on the next night.
+    // - If she dies in the morning (lynch / wolf cub revenge), she must kill a VILLAGER (non-wolf) on the next night.
+    // NOTE: hunter revenge is treated as a NIGHT kill (not morning), per game rules.
+    const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
     STATE.bloodyMaryRevenge = { mustTargetTeam: isMorningDeath ? 'non_wolf' : 'wolf', mustTargetSource: isMorningDeath ? 'morning' : 'night' };
     const ruleStr = STATE.bloodyMaryRevenge.mustTargetTeam === 'wolf'
       ? (STATE.lang === 'vi' ? 'phải giết SÓI' : 'must kill a WOLF')
@@ -1051,10 +1058,11 @@ function killPlayer(id, reason) {
     addHistoryT("system", "hist_bm_revenge_armed", { rule: ruleStr });
   }
   
-  // Alpha Wolf trigger: only when a wolf dies IN THE MORNING (lynch / hunter shot / wolf cub revenge, etc),
+  // Alpha Wolf trigger: only when a wolf dies IN THE MORNING (lynch / wolf cub revenge),
   // and only if an Alpha Wolf is alive at that moment. Triggers once and is consumed on the next night.
+  // NOTE: hunter revenge is treated as a NIGHT kill (not morning), per game rules.
   const alphaAlive = STATE.players.some(x => x.role === 'alpha_wolf' && !x.isDead);
-  const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
+  const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
   if (alphaAlive && isMorningDeath && p.role && ROLES[p.role]?.team === 'wolf' && !STATE.alphaWolfUsed) {
     STATE.alphaWolfTriggered = true;
   }
@@ -1062,7 +1070,8 @@ function killPlayer(id, reason) {
   p.lovers.forEach(lid => killPlayer(lid, t('death_heartbreak')));
   let dw = STATE.players.find(x => x.role === 'dire_wolf' && x.direWolfTarget === id && !x.isDead);
   if (dw) {
-    const isMorningDeath = ['lynch', 'hunter revenge', 'wolf cub revenge'].includes(reason);
+    // Hunter revenge is a night kill, not morning — so dire wolf dies silently alongside
+    const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
     if (isMorningDeath) {
       addHistoryT("system", "hist_dw_dies_too", { name: dw.name });
       showToast(`${dw.name} (Dire Wolf) also dies!`);
@@ -1438,10 +1447,11 @@ function confirmAction() {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
-        if (p.role && ROLES[p.role].team === 'wolf') {
+        if (p.role && ROLES[p.role] && ROLES[p.role].team === 'wolf') {
           STATE.nightDeaths.push({id: p.id, source: 'revealer'});
           addHistoryT("system", "hist_revealer_wolf", { name: p.name }, true);
         } else {
+          // actor is guaranteed non-null here (checked above)
           STATE.nightDeaths.push({id: actor.id, source: 'revealer_fail'});
           addHistoryT("system", "hist_revealer_not_wolf", { name: p.name }, true);
         }
