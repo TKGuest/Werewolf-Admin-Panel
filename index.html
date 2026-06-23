@@ -265,12 +265,16 @@
       <div id="mapping-banner" class="mapping-banner d-none">Mapping Mode</div>
       <div id="action-instruction" class="action-instruction"></div>
       <div id="wake-up-quote" style="font-size: 18px; font-weight: bold; font-style: italic; margin-bottom: 15px; min-height: 50px;"></div>
+      <div id="illegal-action-warning" class="d-none" style="background: rgba(207, 102, 121, 0.2); color: var(--danger); border: 1px solid var(--danger); padding: 10px; border-radius: 8px; font-weight: bold; font-size: 14px; margin-bottom: 15px; text-align: center;"></div>
       <div id="panel-info" style="margin-bottom: 10px; color: var(--text-muted); font-size: 14px;"></div>
       
       <div class="flex-gap" style="justify-content: center; margin-bottom: 20px;">
         <button id="btn-undo" onclick="undo()" class="outline i18n" data-i18n="undo">Undo</button>
         <button id="btn-skip" onclick="skipAction()" class="i18n" data-i18n="skip">Skip</button>
         <button id="btn-confirm" onclick="confirmAction()" class="i18n" data-i18n="confirm">Confirm</button>
+      </div>
+      <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <button id="btn-override" onclick="toggleOverrideMode()" class="outline" style="border-color: var(--danger); color: var(--danger); width: 100%; max-width: 200px;">Kill/Revive: OFF</button>
       </div>
       <div class="flex-gap" id="morning-buttons" style="display: none; justify-content: center; margin-bottom: 20px;">
         <button onclick="processMorningLynching()" class="danger i18n" data-i18n="lynch">Lynch Selected</button>
@@ -353,7 +357,7 @@ const ROLES = {
   bloody_mary: { en: "Bloody Mary", vi: "Bloody Mary", score: 1, team: "neutral", emoji: "🩸", recognitionOnly: true },
   cupid: { en: "Cupid", vi: "Cupid", score: -3, team: "neutral", emoji: "💘" },
   werewolf: { en: "Werewolf", vi: "Ma sói", score: -6, team: "wolf", emoji: "🐺" },
-  fang_face: { en: "Fang Face", vi: "Sói răng thỏ", score: -5, team: "wolf", emoji: "🧛", recognitionOnly: true },
+  fruit_brute: { en: "Fruit Brute", vi: "Sói ăn chay", score: -3, team: "wolf", emoji: "🥦", recognitionOnly: true },
   dire_wolf: { en: "Dire Wolf", vi: "Sói đau khổ", score: -4, team: "wolf", emoji: "🖤" },
   wolf_cub: { en: "Wolf Cub", vi: "Sói trẻ", score: -8, team: "wolf", emoji: "🐺🐾", recognitionOnly: true },
   wolf_man: { en: "Wolf Man", vi: "Người sói", score: -9, team: "wolf", emoji: "👤🐺", recognitionOnly: true },
@@ -382,7 +386,7 @@ const I18N = {
     wake_werewolves_group: "Werewolves, wake up. Choose your victim.",
     wake_witch: "Witch, wake up. These players will die tonight {names}. Will you use your healing potion or your poison tonight?",
     wake_seer: "Seer, wake up. Choose one person to inspect. Nod is wolf, shake is not wolf. [Result: {res}]",
-    wake_beholder: "Beholder, wake up. Seer, please raise your hand so the Beholder knows who you are. Beholder, see the Seer and their first sighting.",
+    wake_beholder: "Beholder, wake up. Seer ({seers}), please raise your hand so the Beholder knows who you are. Beholder, see the Seer and their first sighting.",
     wake_huntress: "Huntress, wake up. You have one shot. Will you use it tonight to kill a player?",
     wake_revealer: "Revealer, wake up. You may choose one person to reveal. If they are a wolf, they die. If they are not, you die.",
     wake_alpha_wolf: "Alpha Wolf, wake up. You may choose one villager to secretly convert to your side tonight.",
@@ -446,7 +450,7 @@ const I18N = {
     wake_werewolves_group: "Ma sói, hãy thức dậy. Chọn nạn nhân của các bạn.",
     wake_witch: "Phù thủy, hãy thức dậy. Sắp chết: {names}. Dùng thuốc?",
     wake_seer: "Tiên tri, thức dậy. Tiên tri soi một người. [Kết quả: {res}]",
-    wake_beholder: "Kẻ si tình, thức dậy. Tiên tri hãy giơ tay để Kẻ si tình nhận biết. Kẻ si tình, nhìn Tiên tri và lượt soi đầu tiên.",
+    wake_beholder: "Kẻ si tình, thức dậy. Tiên tri ({seers}) hãy giơ tay để Kẻ si tình nhận biết. Kẻ si tình, nhìn Tiên tri và lượt soi đầu tiên.",
     wake_huntress: "Nữ thợ săn, thức dậy. Bạn có muốn bắn không?",
     wake_revealer: "Người khám phá, thức dậy. Lật mặt một người.",
     wake_alpha_wolf: "Sói đầu đàn, thức dậy. Chọn một dân làng để bí mật chuyển sang phe sói.",
@@ -528,6 +532,33 @@ let STATE = {
 
 let PRESETS = [];
 let ROLE_PRESETS = [];
+let OVERRIDE_MODE = false;
+
+function toggleOverrideMode() {
+  OVERRIDE_MODE = !OVERRIDE_MODE;
+  const btn = document.getElementById('btn-override');
+  if (OVERRIDE_MODE) {
+    btn.innerText = STATE.lang === 'vi' ? 'Sát/Hồi: BẬT' : 'Kill/Revive: ON';
+    btn.style.backgroundColor = 'var(--danger)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--danger)';
+  } else {
+    btn.innerText = STATE.lang === 'vi' ? 'Sát/Hồi: TẮT' : 'Kill/Revive: OFF';
+    btn.style.backgroundColor = '';
+    btn.style.color = 'var(--danger)';
+    btn.style.borderColor = 'var(--danger)';
+  }
+}
+
+function showIllegalAction(msg) {
+  const el = document.getElementById('illegal-action-warning');
+  if (el) {
+    el.innerText = msg;
+    el.classList.remove('d-none');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  showToast(msg);
+}
 
 // --- INITIALIZATION ---
 function init() {
@@ -627,7 +658,7 @@ function pushUndo() {
   const clone = JSON.parse(JSON.stringify(STATE));
   clone.undoStack = [];
   STATE.undoStack.push(clone);
-  if (STATE.undoStack.length > 20) STATE.undoStack.shift();
+  if (STATE.undoStack.length > 200) STATE.undoStack.shift();
 }
 function undo() {
   if (STATE.undoStack.length === 0) return;
@@ -827,7 +858,7 @@ function resetGame() {
 }
 
 // Wolf refinement roles — these are picked FROM the wolf_pending pool
-const SPECIAL_WOLVES = ['dire_wolf', 'wolf_man', 'wolf_cub', 'fang_face', 'alpha_wolf'];
+const SPECIAL_WOLVES = ['dire_wolf', 'wolf_man', 'wolf_cub', 'fruit_brute', 'alpha_wolf'];
 
 const PHASE_ORDER = [
     { role: 'cupid',            map: true,  power: true  },
@@ -852,7 +883,7 @@ const PHASE_ORDER = [
     { role: 'dire_wolf',        map: true,  power: true  },
     { role: 'wolf_man',         map: true,  power: false },
     { role: 'wolf_cub',         map: true,  power: false },
-    { role: 'fang_face',        map: true,  power: false },
+    { role: 'fruit_brute',      map: true,  power: false },
     { role: 'spellcaster',      map: true,  power: true  },
     { role: 'witch',            map: true,  power: true  },
     { role: 'seer',             map: true,  power: true  },
@@ -902,7 +933,7 @@ function getCurrentPhaseData() {
 
       // werewolves_group: skip if no wolves at all in pool
       else if (step.role === 'werewolves_group') {
-        let wolfTotal = ['werewolf','dire_wolf','wolf_man','wolf_cub','fang_face','alpha_wolf']
+        let wolfTotal = ['werewolf','dire_wolf','wolf_man','wolf_cub','fruit_brute','alpha_wolf']
           .reduce((s, w) => s + (STATE.setupPool[w] || 0), 0);
         if (wolfTotal === 0) { stepIdx++; continue; }
       }
@@ -922,7 +953,7 @@ function getCurrentPhaseData() {
 
         if (step.role === 'werewolves_group') {
           // Count ALL wolf slots across every wolf sub-type
-          let wolfTotal = ['werewolf','dire_wolf','wolf_man','wolf_cub','fang_face','alpha_wolf']
+          let wolfTotal = ['werewolf','dire_wolf','wolf_man','wolf_cub','fruit_brute','alpha_wolf']
             .reduce((s, w) => s + (STATE.setupPool[w] || 0), 0);
           // Count players already assigned to ANY wolf role (or pending)
           let wolfMapped = STATE.players.filter(p =>
@@ -1206,6 +1237,12 @@ function confirmAction() {
   pushUndo();
   let phase = getCurrentPhaseData();
   
+  if (phase.type === 'end_night') {
+    processNightEnd();
+    saveState();
+    return;
+  }
+  
   if (phase.mapping) {
     let needed = phase.poolForMap;
     if (STATE.selectedTargets.length < needed)
@@ -1305,7 +1342,10 @@ function confirmAction() {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
-        if (p.role && ROLES[p.role].team === 'wolf') return showToast("Dire Wolf cannot choose another wolf!");
+        if (p.role && ROLES[p.role].team === 'wolf') {
+          showIllegalAction(STATE.lang === 'vi' ? "Sói đau khổ không thể chọn sói khác làm người yêu!" : "Dire Wolf cannot choose another wolf!");
+          return;
+        }
         actor.direWolfTarget = p.id;
         addHistoryT("system", "hist_dire_wolf_lover", { actor: actor.name, name: p.name }, true);
       }
@@ -1379,6 +1419,13 @@ function confirmAction() {
             addHistoryT("wolf", "hist_alpha_convert_success", { name: p.name });
           }
         } else {
+          let aliveWolves = STATE.players.filter(x => !x.isDead && (ROLES[x.role]?.team === 'wolf' || x.role === 'wolf_pending'));
+          let fruitBruteOnly = (aliveWolves.length === 1 && aliveWolves[0].role === 'fruit_brute');
+          if (fruitBruteOnly) {
+            showIllegalAction(STATE.lang === 'vi' ? "Sói ăn chay (Fruit Brute) đang là con sói duy nhất còn sống, không thể chọn giết ai!" : "Fruit Brute is the only wolf left and cannot kill anyone!");
+            return;
+          }
+
           // Cursed conversion happens immediately on bite (unless protected beforehand, or Cupid/couple).
           const isCupidTeam = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
           if (p && p.role === 'cursed' && !p.cursedBitten && !p.protected && !isCupidTeam) {
@@ -1519,9 +1566,15 @@ function confirmAction() {
 
         // Enforce revenge target type based on how Bloody Mary died
         if (STATE.bloodyMaryRevenge?.mustTargetTeam === 'wolf') {
-          if (!(ROLES[target.role]?.team === 'wolf' || target.role === 'wolf_pending')) return showToast('Bloody Mary must kill a werewolf.');
+          if (!(ROLES[target.role]?.team === 'wolf' || target.role === 'wolf_pending')) {
+            showIllegalAction(STATE.lang === 'vi' ? "Bloody Mary phải chọn Ma sói để trả thù!" : "Bloody Mary must kill a werewolf.");
+            return;
+          }
         } else {
-          if ((ROLES[target.role]?.team === 'wolf' || target.role === 'wolf_pending')) return showToast('Bloody Mary must kill a villager (non-wolf).');
+          if ((ROLES[target.role]?.team === 'wolf' || target.role === 'wolf_pending')) {
+            showIllegalAction(STATE.lang === 'vi' ? "Bloody Mary phải chọn Dân làng (không phải sói) để trả thù!" : "Bloody Mary must kill a villager (non-wolf).");
+            return;
+          }
         }
 
         STATE.nightDeaths.push({id: target.id, source: 'bloody_mary'});
@@ -1603,6 +1656,10 @@ function checkGameOver() {
 }
 
 function toggleTarget(id) {
+  if (OVERRIDE_MODE) {
+    toggleDeadManual(id);
+    return;
+  }
   let phase = getCurrentPhaseData();
   if (phase.type === 'morning') {
     STATE.selectedTargets = [id];
@@ -1769,6 +1826,24 @@ function updateRegistry() {
 }
 
 function updatePanel() {
+  const warningEl = document.getElementById('illegal-action-warning');
+  if (warningEl) warningEl.classList.add('d-none');
+
+  const btnOverride = document.getElementById('btn-override');
+  if (btnOverride) {
+    if (OVERRIDE_MODE) {
+      btnOverride.innerText = STATE.lang === 'vi' ? 'Sát/Hồi: BẬT' : 'Kill/Revive: ON';
+      btnOverride.style.backgroundColor = 'var(--danger)';
+      btnOverride.style.color = '#fff';
+      btnOverride.style.borderColor = 'var(--danger)';
+    } else {
+      btnOverride.innerText = STATE.lang === 'vi' ? 'Sát/Hồi: TẮT' : 'Kill/Revive: OFF';
+      btnOverride.style.backgroundColor = '';
+      btnOverride.style.color = 'var(--danger)';
+      btnOverride.style.borderColor = 'var(--danger)';
+    }
+  }
+
   if (!STATE.gameStarted) {
     document.getElementById('wake-up-quote').innerText = "Game not started.";
     document.getElementById('panel-grid').innerHTML = '';
@@ -1823,8 +1898,13 @@ function updatePanel() {
       confirmBtn.innerText = t('map_btn');
     } else {
       banner.classList.add('d-none');
+      let vars = {};
+      if (phase.role === 'beholder') {
+        let aliveSeers = STATE.players.filter(p => !p.isDead && (p.role === 'seer' || p.role === 'apprentice_seer')).map(p => p.name);
+        vars.seers = aliveSeers.length > 0 ? aliveSeers.join(', ') : (STATE.lang === 'vi' ? 'Tiên tri' : 'Seer');
+      }
       let wakeKey = 'wake_' + phase.role;
-      let wakeText = (phase.role ? (t(wakeKey) || t('wake_gen', {role: getRoleName(phase.role)})) : "");
+      let wakeText = (phase.role ? (t(wakeKey, vars) || t('wake_gen', {role: getRoleName(phase.role)})) : "");
       quoteEl.innerText = wakeText;
       if (phase.role === 'witch') {
         // Witch sees only actual imminent deaths for this night (not protected, not hidden).
