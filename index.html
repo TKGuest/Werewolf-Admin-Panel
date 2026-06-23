@@ -313,6 +313,14 @@
         <option value="vi">Tiếng Việt</option>
       </select>
     </div>
+    <div class="flex-between mb-3">
+      <span class="i18n" data-i18n="player_order">Player Order</span>
+      <select id="order-select" onchange="changePlayerOrder(this.value)" style="width: auto; margin:0;">
+        <option value="default" class="i18n" data-i18n="order_default">Default</option>
+        <option value="alpha" class="i18n" data-i18n="order_alpha">Alphabetical</option>
+        <option value="role" class="i18n" data-i18n="order_role">By Roles</option>
+      </select>
+    </div>
     <button onclick="toggleSettings()" class="i18n" data-i18n="close" style="width: 100%">Close</button>
   </div>
 </div>
@@ -386,7 +394,7 @@ const I18N = {
     wake_werewolves_group: "Werewolves, wake up. Choose your victim.",
     wake_witch: "Witch, wake up. These players will die tonight {names}. Will you use your healing potion or your poison tonight?",
     wake_seer: "Seer, wake up. Choose one person to inspect. Nod is wolf, shake is not wolf. [Result: {res}]",
-    wake_beholder: "Beholder, wake up. Seer ({seers}), please raise your hand so the Beholder knows who you are. Beholder, see the Seer and their first sighting.",
+    wake_beholder: "Beholder, wake up. Seer, please raise your hand so the Beholder knows who you are. Beholder, see the Seer.",
     wake_huntress: "Huntress, wake up. You have one shot. Will you use it tonight to kill a player?",
     wake_revealer: "Revealer, wake up. You may choose one person to reveal. If they are a wolf, they die. If they are not, you die.",
     wake_alpha_wolf: "Alpha Wolf, wake up. You may choose one villager to secretly convert to your side tonight.",
@@ -432,7 +440,8 @@ const I18N = {
     hist_vampire_mark: "Vampire marked {name}.",
     reset: "Reset", sunrise_intro: "Everyone wakes up. These players died:",
     death_heartbreak: "heartbreak", death_delayed: "fatal wound (delayed)", death_dw_anchor: "Dire Wolf anchor died",
-    death_revealer_fail: "Revealer failed", death_revenge: "revenge"
+    death_revealer_fail: "Revealer failed", death_revenge: "revenge",
+    player_order: "Player Order", order_default: "Default", order_alpha: "Alphabetical", order_role: "By Roles"
   },
   vi: {
     registry: "Thiết lập", panel: "Bảng đ.khiển", history: "Lịch sử", notepad: "Ghi chú",
@@ -450,7 +459,7 @@ const I18N = {
     wake_werewolves_group: "Ma sói, hãy thức dậy. Chọn nạn nhân của các bạn.",
     wake_witch: "Phù thủy, hãy thức dậy. Sắp chết: {names}. Dùng thuốc?",
     wake_seer: "Tiên tri, thức dậy. Tiên tri soi một người. [Kết quả: {res}]",
-    wake_beholder: "Kẻ si tình, thức dậy. Tiên tri ({seers}) hãy giơ tay để Kẻ si tình nhận biết. Kẻ si tình, nhìn Tiên tri và lượt soi đầu tiên.",
+    wake_beholder: "Kẻ si tình, thức dậy. Tiên tri hãy giơ tay để Kẻ si tình nhận biết. Kẻ si tình, nhìn Tiên tri.",
     wake_huntress: "Nữ thợ săn, thức dậy. Bạn có muốn bắn không?",
     wake_revealer: "Người khám phá, thức dậy. Lật mặt một người.",
     wake_alpha_wolf: "Sói đầu đàn, thức dậy. Chọn một dân làng để bí mật chuyển sang phe sói.",
@@ -496,7 +505,8 @@ const I18N = {
     hist_vampire_mark: "Ma cà rồng đã đánh dấu {name}.",
     reset: "Đặt lại", sunrise_intro: "Mọi người đều thức dậy. Những người sau đây đã chết:",
     death_heartbreak: "thất tình (chết theo người yêu)", death_delayed: "vết thương chí mạng (trì hoãn)", death_dw_anchor: "người yêu của Sói đau khổ đã chết",
-    death_revealer_fail: "Người khám phá thất bại", death_revenge: "trả thù"
+    death_revealer_fail: "Người khám phá thất bại", death_revenge: "trả thù",
+    player_order: "Sắp xếp người chơi", order_default: "Mặc định", order_alpha: "Theo tên (A-Z)", order_role: "Theo vai trò"
   }
 };
 
@@ -527,7 +537,8 @@ let STATE = {
   gameOver: false,
   winningTeam: "",
   notepad: "",
-  vampireTarget: null
+  vampireTarget: null,
+  playerOrderMode: "default"
 };
 
 let PRESETS = [];
@@ -557,7 +568,6 @@ function showIllegalAction(msg) {
     el.classList.remove('d-none');
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  showToast(msg);
 }
 
 // --- INITIALIZATION ---
@@ -667,6 +677,7 @@ function undo() {
   STATE = last;
   STATE.undoStack = st;
   saveState();
+  updateUI();
 }
 
 function t(key, vars={}) {
@@ -676,8 +687,17 @@ function t(key, vars={}) {
   return str;
 }
 function getRoleName(k) { return ROLES[k] ? ROLES[k][STATE.lang] : k; }
-function changeLang(l) { STATE.lang = l; saveState(); }
-function toggleSettings() { const m = document.getElementById('settings-modal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
+function changeLang(l) { STATE.lang = l; saveState(); updateUI(); }
+function changePlayerOrder(v) { STATE.playerOrderMode = v; saveState(); updateUI(); }
+function toggleSettings() {
+  const m = document.getElementById('settings-modal');
+  m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+  if (m.style.display === 'flex') {
+    document.getElementById('lang-select').value = STATE.lang;
+    const ordSelect = document.getElementById('order-select');
+    if (ordSelect) ordSelect.value = STATE.playerOrderMode || 'default';
+  }
+}
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
@@ -822,7 +842,7 @@ function startGame() {
     id: 'p'+i, name, role: null, originalRole: null, isDead: false, silenced: false,
     protected: false, lovers: [], tannerLover: false, cursedBitten: false, toughGuyBitten: 0,
     alphaWolfConverted: false, direWolfTarget: null,
-    princeRevealed: false, priestProtected: false
+    princeRevealed: false, priestProtected: false, witchHealed: false, hunterDeathContext: 'night'
   }));
   STATE.nightDeaths = [];
   STATE.hunterPendingShot = [];
@@ -870,11 +890,9 @@ const PHASE_ORDER = [
     { role: 'prince',           map: true,  power: false },
     { role: 'hunter',           map: true,  power: false },
     { role: 'apprentice_seer',  map: true,  power: false },
+    { role: 'beholder',         map: true,  power: true  },
     { role: 'bodyguard',        map: true,  power: true  },
     { role: 'priest',           map: true,  power: true  },
-    { role: 'beholder',         map: true,  power: true  },
-    { role: 'vampire',          map: true,  power: true  },
-    { role: 'chupacabra',       map: true,  power: true  },
     { role: 'werewolves_group', map: true,  power: true,  displayName: 'Werewolves' },
     // Special wolves: refine 1 wolf_pending into this specific role, then power (if any)
     // Alpha Wolf is refined on Night 1, but its "convert" power is executed by the werewolves group
@@ -884,6 +902,8 @@ const PHASE_ORDER = [
     { role: 'wolf_man',         map: true,  power: false },
     { role: 'wolf_cub',         map: true,  power: false },
     { role: 'fruit_brute',      map: true,  power: false },
+    { role: 'vampire',          map: true,  power: true  },
+    { role: 'chupacabra',       map: true,  power: true  },
     { role: 'spellcaster',      map: true,  power: true  },
     { role: 'witch',            map: true,  power: true  },
     { role: 'seer',             map: true,  power: true  },
@@ -1053,33 +1073,31 @@ function killPlayer(id, reason) {
   let p = STATE.players.find(x => x.id === id);
   if (!p || p.isDead) return;
   
-  // Tough Guy delay logic (night attacks only)
-  if (p.role === 'tough_guy' && (reason === 'wolf' || reason === 'night' || reason === 'poison')) {
+  // Tough Guy delay logic (immune to all night/delayed attacks, including night hunter shots, wolf bites, witch poison)
+  // except for being lynched, morning hunter shot, or resolving delayed wounds
+  if (p.role === 'tough_guy' && reason !== 'lynch' && reason !== 'hunter revenge morning' && reason !== 'delayed wounds') {
     if (!p.toughGuyBitten) {
-        // Die on the next DAY's morning.
-        // Example: bitten Night 1 (0.5) -> alive Day 1 + Night 2 -> die Day 2 morning.
-        // This runs during sunrise resolution (STATE.day is already an integer morning),
-        // so schedule death at next integer day.
-        p.toughGuyBitten = Math.floor(STATE.day) + 1;
-        addHistory("death", t('log_kill', {name: p.name, source: t('death_delayed')}));
-        return; 
+      let offset = (STATE.day % 1 === 0) ? 1 : 2;
+      p.toughGuyBitten = Math.floor(STATE.day) + offset;
+      addHistory("death", t('log_kill', {name: p.name, source: t('death_delayed')}));
+      return; 
     }
   }
 
   p.isDead = true;
   if (!STATE.deathsThisNight.includes(p.name)) STATE.deathsThisNight.push(p.name);
-  // All deaths should have the bold/thick border (red)
   const isImportant = true;
   addHistory("death", t('log_kill', {name: p.name, source: t(reason) || reason}), isImportant);
-  if (p.role === 'hunter') STATE.hunterPendingShot.push(p.id);
+  if (p.role === 'hunter') {
+    let heartbreakReason = t('death_heartbreak');
+    let isMorning = (reason === 'lynch' || reason === 'vampire' || (reason === heartbreakReason && STATE.day % 1 === 0));
+    p.hunterDeathContext = isMorning ? 'morning' : 'night';
+    STATE.hunterPendingShot.push(p.id);
+  }
   if (p.role === 'wolf_cub') STATE.wolfCubPendingShot.push(p.id);
 
   if (p.role === 'bloody_mary') {
-    // Bloody Mary revenge rules:
-    // - If she dies at night (any source, including hunter shot), she must kill a WOLF on the next night.
-    // - If she dies in the morning (lynch / wolf cub revenge), she must kill a VILLAGER (non-wolf) on the next night.
-    // NOTE: hunter revenge is treated as a NIGHT kill (not morning), per game rules.
-    const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
+    const isMorningDeath = ['lynch', 'wolf cub revenge', 'vampire', 'hunter revenge morning'].includes(reason);
     STATE.bloodyMaryRevenge = { mustTargetTeam: isMorningDeath ? 'non_wolf' : 'wolf', mustTargetSource: isMorningDeath ? 'morning' : 'night' };
     const ruleStr = STATE.bloodyMaryRevenge.mustTargetTeam === 'wolf'
       ? (STATE.lang === 'vi' ? 'phải giết SÓI' : 'must kill a WOLF')
@@ -1087,11 +1105,8 @@ function killPlayer(id, reason) {
     addHistoryT("system", "hist_bm_revenge_armed", { rule: ruleStr });
   }
   
-  // Alpha Wolf trigger: only when a wolf dies IN THE MORNING (lynch / wolf cub revenge),
-  // and only if an Alpha Wolf is alive at that moment. Triggers once and is consumed on the next night.
-  // NOTE: hunter revenge is treated as a NIGHT kill (not morning), per game rules.
   const alphaAlive = STATE.players.some(x => x.role === 'alpha_wolf' && !x.isDead);
-  const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
+  const isMorningDeath = ['lynch', 'wolf cub revenge', 'vampire', 'hunter revenge morning'].includes(reason);
   if (alphaAlive && isMorningDeath && p.role && ROLES[p.role]?.team === 'wolf' && !STATE.alphaWolfUsed) {
     STATE.alphaWolfTriggered = true;
   }
@@ -1099,8 +1114,7 @@ function killPlayer(id, reason) {
   p.lovers.forEach(lid => killPlayer(lid, t('death_heartbreak')));
   let dw = STATE.players.find(x => x.role === 'dire_wolf' && x.direWolfTarget === id && !x.isDead);
   if (dw) {
-    // Hunter revenge is a night kill, not morning — so dire wolf dies silently alongside
-    const isMorningDeath = ['lynch', 'wolf cub revenge'].includes(reason);
+    const isMorningDeath = ['lynch', 'wolf cub revenge', 'vampire', 'hunter revenge morning'].includes(reason);
     if (isMorningDeath) {
       addHistoryT("system", "hist_dw_dies_too", { name: dw.name });
       showToast(`${dw.name} (Dire Wolf) also dies!`);
@@ -1150,7 +1164,9 @@ function resolveSunrise() {
     // Revealer and Witch Poison bypass normal protection
     let bypassesProtection = (d.source === 'witch_poison' || d.source === 'revealer');
     
-    if ((p.protected || p.priestProtected) && !bypassesProtection) {
+    if (p.witchHealed && !bypassesProtection) {
+      addHistoryT("protect", "hist_protected", { name: p.name });
+    } else if ((p.protected || p.priestProtected) && !bypassesProtection) {
       addHistoryT("protect", "hist_protected", { name: p.name });
     } else {
       actualDeaths.push(d);
@@ -1191,18 +1207,26 @@ function processMorningLynching() {
   checkGameOver();
   if (!STATE.gameOver) {
     // Clear one-night effects as we go to sleep
-    STATE.players.forEach(p => p.silenced = false);
-    STATE.day += 0.5; STATE.phaseStep = 0; STATE.nightDeaths = []; STATE.players.forEach(p => p.protected = false); saveState();
+    STATE.players.forEach(p => {
+      p.silenced = false;
+      p.protected = false;
+      p.witchHealed = false;
+    });
+    STATE.day += 0.5; STATE.phaseStep = 0; STATE.nightDeaths = []; saveState();
   }
 }
 
 function skipMorning() {
   // Clear one-night effects as we go to sleep
-  STATE.players.forEach(p => p.silenced = false);
+  STATE.players.forEach(p => {
+    p.silenced = false;
+    p.protected = false;
+    p.witchHealed = false;
+  });
   pushUndo();
   addHistoryT("system", "hist_lynch_none", {}, true);
   resolveVampireKill();
-  STATE.day += 0.5; STATE.phaseStep = 0; STATE.powerDone = false; STATE.nightDeaths = []; STATE.players.forEach(p => p.protected = false); saveState();
+  STATE.day += 0.5; STATE.phaseStep = 0; STATE.powerDone = false; STATE.nightDeaths = []; saveState();
 }
 
 function resolveVampireKill() {
@@ -1245,8 +1269,10 @@ function confirmAction() {
   
   if (phase.mapping) {
     let needed = phase.poolForMap;
-    if (STATE.selectedTargets.length < needed)
-      return showToast(`Select exactly ${needed} player(s).`);
+    if (STATE.selectedTargets.length < needed) {
+      showIllegalAction(STATE.lang === 'vi' ? `Vui lòng chọn đúng ${needed} người chơi!` : `Select exactly ${needed} player(s).`);
+      return;
+    }
 
     if (phase.isWolfGroup) {
       // Assign ALL selected players as wolf_pending
@@ -1257,10 +1283,16 @@ function confirmAction() {
       });
     } else if (phase.isWolfRefinement) {
       // Overwrite wolf_pending with the specific sub-role
+      for (let i = 0; i < STATE.selectedTargets.length; i++) {
+        let id = STATE.selectedTargets[i];
+        let p = STATE.players.find(x => x.id === id);
+        if (p.role !== 'wolf_pending') {
+          showIllegalAction(STATE.lang === 'vi' ? 'Bạn phải chọn một thành viên của Nhóm Sói (wolf_pending)!' : 'You must select a Wolf Team member (wolf_pending).');
+          return;
+        }
+      }
       STATE.selectedTargets.forEach(id => {
         let p = STATE.players.find(x => x.id === id);
-        if (p.role !== 'wolf_pending')
-          return showToast('You must select a Wolf Team member (wolf_pending).');
         p.role = phase.mapRole; p.originalRole = phase.mapRole;
         p.icon = ROLES[p.role]?.emoji || '';
         if (phase.mapRole === 'dire_wolf') {
@@ -1289,22 +1321,44 @@ function confirmAction() {
 
 
   if (phase.type === 'hunter_revenge') {
-    if (STATE.selectedTargets.length !== 1) return alert('Select 1 target to kill.');
-    killPlayer(STATE.selectedTargets[0], 'hunter revenge');
+    if (STATE.selectedTargets.length !== 1) {
+      showIllegalAction(STATE.lang === 'vi' ? 'Thợ săn phải chọn đúng 1 người chơi để trả thù!' : 'Hunter must select exactly 1 player to kill.');
+      return;
+    }
+    let hunterId = STATE.hunterPendingShot[0];
+    let hp_actor = STATE.players.find(x => x.id === hunterId);
+    let targetId = STATE.selectedTargets[0];
+    let targetPlayer = STATE.players.find(x => x.id === targetId);
+    let isNight = hp_actor && hp_actor.hunterDeathContext === 'night';
+    
+    if (isNight && targetPlayer) {
+      if (targetPlayer.protected || targetPlayer.priestProtected || targetPlayer.witchHealed) {
+        addHistory("protect", `${targetPlayer.name} was protected from Hunter's revenge shot.`);
+      } else {
+        killPlayer(targetId, 'hunter revenge night');
+      }
+    } else {
+      killPlayer(targetId, 'hunter revenge morning');
+    }
     STATE.hunterPendingShot.shift();
     STATE.selectedTargets = [];
     checkGameOver();
     saveState();
+    updateUI();
     return;
   }
 
   if (phase.type === 'wolf_cub_revenge') {
-    if (STATE.selectedTargets.length !== 1) return alert('Select 1 target to kill.');
+    if (STATE.selectedTargets.length !== 1) {
+      showIllegalAction(STATE.lang === 'vi' ? 'Sói con phải chọn đúng 1 người chơi để trả thù!' : 'Wolf Cub must select exactly 1 player to kill.');
+      return;
+    }
     killPlayer(STATE.selectedTargets[0], 'wolf cub revenge');
     STATE.wolfCubPendingShot.shift();
     STATE.selectedTargets = [];
     checkGameOver();
     saveState();
+    updateUI();
     return;
   }
 
@@ -1313,7 +1367,10 @@ function confirmAction() {
   let actor = STATE.players.find(p => p.role === r && !p.isDead);
 
   if (r === 'cupid') {
-    if (STATE.selectedTargets.length !== 2) return showToast('Cupid must select exactly 2 players.');
+    if (STATE.selectedTargets.length !== 2) {
+      showIllegalAction(STATE.lang === 'vi' ? 'Thần tình yêu phải chọn đúng 2 người chơi!' : 'Cupid must select exactly 2 players.');
+      return;
+    }
     if (actor) {
       let p1 = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
       let p2 = STATE.players.find(x=>x.id===STATE.selectedTargets[1]);
@@ -1327,15 +1384,18 @@ function confirmAction() {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
         let targetId = STATE.selectedTargets[0];
-        if (STATE.lastBodyguardProtectedId && STATE.lastBodyguardProtectedId === targetId)
-          return showToast("Bodyguard can't protect the same person twice in a row.");
+        if (STATE.lastBodyguardProtectedId && STATE.lastBodyguardProtectedId === targetId) {
+          showIllegalAction(STATE.lang === 'vi' ? "Bảo vệ không thể bảo vệ cùng một người hai đêm liên tiếp!" : "Bodyguard cannot protect the same person twice in a row!");
+          return;
+        }
         let p = STATE.players.find(x=>x.id===targetId); p.protected = true;
         STATE.lastBodyguardProtectedId = targetId;
         addHistoryT("protect", "hist_bodyguard_protect", { name: p.name }, true);
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 player to protect.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người chơi để bảo vệ!" : "Select 1 player to protect.");
+      return;
     }
   }
   else if (r === 'dire_wolf') {
@@ -1351,15 +1411,18 @@ function confirmAction() {
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 lover for Dire Wolf.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người yêu cho Sói đau khổ!" : "Select 1 lover for Dire Wolf.");
+      return;
     }
   }
   else if (r === 'spellcaster') {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
         let targetId = STATE.selectedTargets[0];
-        if (STATE.lastSpellcasterSilencedId && STATE.lastSpellcasterSilencedId === targetId)
-          return showToast("Spellcaster can't silence the same person twice in a row.");
+        if (STATE.lastSpellcasterSilencedId && STATE.lastSpellcasterSilencedId === targetId) {
+          showIllegalAction(STATE.lang === 'vi' ? "Pháp sư câm lặng không thể chọn cùng một người hai đêm liên tiếp!" : "Spellcaster cannot silence the same person twice in a row!");
+          return;
+        }
         let sp = STATE.players.find(x=>x.id===targetId);
         sp.silenced = true;
         STATE.lastSpellcasterSilencedId = targetId;
@@ -1367,13 +1430,12 @@ function confirmAction() {
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 player to silence.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người chơi để câm lặng!" : "Select 1 player to silence.");
+      return;
     }
   }
   else if (r === 'werewolves_group') {
     if (STATE.selectedTargets.length === 1) {
-      // On Night 1, wolves are often still "wolf_pending" (not part of ROLES),
-      // so treat wolf_pending as a live wolf for the group action.
       let anyWolfAlive = STATE.players.some(p =>
         !p.isDead && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')
       );
@@ -1383,15 +1445,10 @@ function confirmAction() {
         const doConvert = STATE.alphaWolfTriggered && !STATE.alphaWolfUsed && alphaAlive;
 
         if (doConvert) {
-          // Conversion rules:
-          // - Only happens on the night after a wolf dies in the morning
-          // - Can't convert Cupid team (lovers) or Cupid itself
-          // - Fails if target is protected by Bodyguard (consumes the one-time conversion)
-          // - Consumes even if target is Cursed (still loses the effect)
-          if (!p || !p.role) {
-            // Unmapped is allowed (treated as Villager by rules), but ensure object exists
+          if (p && p.role && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')) {
+            showIllegalAction(STATE.lang === 'vi' ? "Phải chọn người chơi không thuộc phe Sói để thu phục!" : "Must select a non-wolf player.");
+            return;
           }
-          if (p && p.role && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')) return showToast('Must select a non-wolf player.');
 
           STATE.alphaWolfUsed = true;
           STATE.alphaWolfTriggered = false;
@@ -1400,7 +1457,6 @@ function confirmAction() {
           const blockedPrince = p && p.role === 'prince' && p.princeRevealed;
 
           if (blockedByCupid) {
-            // If wolves try to convert Cupid/couple (including Cursed couple), they die instead.
             if (p && p.protected) {
               addHistoryT("wolf", "hist_alpha_convert_fail_cupid_kill_protected", { name: p.name });
             } else if (p) {
@@ -1426,7 +1482,6 @@ function confirmAction() {
             return;
           }
 
-          // Cursed conversion happens immediately on bite (unless protected beforehand, or Cupid/couple).
           const isCupidTeam = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
           if (p && p.role === 'cursed' && !p.cursedBitten && !p.protected && !isCupidTeam) {
             p.cursedBitten = true;
@@ -1436,7 +1491,6 @@ function confirmAction() {
             addHistoryT("wolf", "hist_cursed_turn", { name: p.name });
           } else {
             addHistoryT("system", "hist_wolves_targeted", { name: p.name }, true);
-            // Hide Tough Guy bite from Witch the bite night
             const hideFromWitch = (p && p.role === 'tough_guy' && !p.toughGuyBitten);
             STATE.nightDeaths.push({id: p.id, source: 'wolf', hiddenFromWitch: !!hideFromWitch});
           }
@@ -1444,12 +1498,14 @@ function confirmAction() {
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 victim.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 nạn nhân!" : "Select 1 victim.");
+      return;
     }
   }
   else if (r === 'witch') {
     if (STATE.selectedTargets.length === 1 && STATE.witchPoisonUsed) {
-      return showToast("Witch's poison has already been used.");
+      showIllegalAction(STATE.lang === 'vi' ? "Phù thủy đã sử dụng bình độc rồi!" : "Witch's poison has already been used.");
+      return;
     }
     if (STATE.selectedTargets.length === 1 && actor) {
       let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
@@ -1472,12 +1528,16 @@ function confirmAction() {
        actionTaken = true;
        STATE.seerResult = null;
     } else {
-        return showToast('Select 1 player to inspect.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người chơi để soi!" : "Select 1 player to inspect.");
+      return;
     }
   }
   else if (r === 'huntress') {
     if (STATE.selectedTargets.length === 1) {
-      if (STATE.huntressUsed) return showToast("Huntress has already used her shot.");
+      if (STATE.huntressUsed) {
+        showIllegalAction(STATE.lang === 'vi' ? "Thợ săn nữ đã sử dụng phát bắn của mình rồi!" : "Huntress has already used her shot.");
+        return;
+      }
       if (actor) {
         let htarget = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
         STATE.nightDeaths.push({id: htarget.id, source: 'huntress'}); STATE.huntressUsed = true;
@@ -1485,7 +1545,7 @@ function confirmAction() {
       }
       actionTaken = true;
     } else {
-        actionTaken = true; // Can skip
+      actionTaken = true; // Can skip
     }
   }
   else if (r === 'revealer') {
@@ -1496,27 +1556,31 @@ function confirmAction() {
           STATE.nightDeaths.push({id: p.id, source: 'revealer'});
           addHistoryT("system", "hist_revealer_wolf", { name: p.name }, true);
         } else {
-          // actor is guaranteed non-null here (checked above)
           STATE.nightDeaths.push({id: actor.id, source: 'revealer_fail'});
           addHistoryT("system", "hist_revealer_not_wolf", { name: p.name }, true);
         }
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 player to reveal.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người chơi để kiểm tra!" : "Select 1 player to reveal.");
+      return;
     }
   }
   else if (r === 'priest') {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
         let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
-        if (p.id === actor.id) return showToast("Priest cannot protect themselves!");
+        if (p.id === actor.id) {
+          showIllegalAction(STATE.lang === 'vi' ? "Linh mục không thể tự bảo vệ bản thân!" : "Priest cannot protect themselves!");
+          return;
+        }
         p.priestProtected = true;
         addHistoryT("protect", "hist_priest_protect", { name: p.name }, true);
       }
       actionTaken = true;
     } else {
-        return showToast('Select 1 player to bless.');
+      showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 người chơi để thanh tẩy!" : "Select 1 player to bless.");
+      return;
     }
   }
   else if (r === 'beholder') {
@@ -1696,7 +1760,6 @@ function toggleTarget(id) {
 
 function healTarget(id) {
   if (STATE.witchHealUsed) return;
-  let idx = STATE.nightDeaths.findIndex(d => d.id === id && d.source === 'wolf');
   let p = STATE.players.find(x => x.id === id);
   if (!p) return;
 
@@ -1706,16 +1769,17 @@ function healTarget(id) {
     STATE.witchHealUsed = true;
     addHistoryT("system", "hist_witch_heal_wasted", { name: p.name }, true);
     saveState();
+    updateUI();
     return;
   }
 
-  if (idx > -1) {
-    pushUndo();
-    STATE.nightDeaths.splice(idx, 1);
-    STATE.witchHealUsed = true;
-    addHistoryT("system", "hist_witch_heal", { name: p.name }, true);
-    saveState();
-  }
+  pushUndo();
+  p.witchHealed = true;
+  STATE.nightDeaths = STATE.nightDeaths.filter(d => d.id !== id || d.source === 'witch_poison');
+  STATE.witchHealUsed = true;
+  addHistoryT("system", "hist_witch_heal", { name: p.name }, true);
+  saveState();
+  updateUI();
 }
 
 function poisonTarget(id) {
@@ -1947,16 +2011,94 @@ function updatePanel() {
   renderGrid(false);
 }
 
-    function renderGrid(revealAll) {
-      const grid = document.getElementById('panel-grid');
-      grid.innerHTML = '';
-      let phase = getCurrentPhaseData();
+function getSortedPlayers() {
+  const mode = STATE.playerOrderMode || 'default';
+  
+  if (mode === 'alpha') {
+    return [...STATE.players].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity: 'base'}));
+  }
+  
+  if (mode === 'role') {
+    const ROLE_SORT_ORDER = [
+      'cupid',
+      'bloody_mary',
+      'cursed',
+      'tanner',
+      'lycan',
+      'tough_guy',
+      'prince',
+      'hunter',
+      'apprentice_seer',
+      'beholder',
+      'bodyguard',
+      'priest',
+      'alpha_wolf',
+      'dire_wolf',
+      'wolf_man',
+      'wolf_cub',
+      'lone_wolf',
+      'fruit_brute',
+      'werewolf',
+      'wolf_pending',
+      'vampire',
+      'chupacabra',
+      'spellcaster',
+      'witch',
+      'seer',
+      'huntress',
+      'revealer',
+      'village'
+    ];
+    
+    if (STATE.day === 0.5) {
+      let assigned = [];
+      let unassigned = [];
+      
+      STATE.players.forEach((p, idx) => {
+        if (p.role) {
+          assigned.push({ player: p, originalIdx: idx });
+        } else {
+          unassigned.push({ player: p, originalIdx: idx });
+        }
+      });
+      
+      assigned.sort((a, b) => {
+        let idxA = ROLE_SORT_ORDER.indexOf(a.player.role);
+        let idxB = ROLE_SORT_ORDER.indexOf(b.player.role);
+        if (idxA === -1) idxA = 999;
+        if (idxB === -1) idxB = 999;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.originalIdx - b.originalIdx;
+      });
+      
+      unassigned.sort((a, b) => a.originalIdx - b.originalIdx);
+      
+      return [...assigned.map(x => x.player), ...unassigned.map(x => x.player)];
+    } else {
+      return [...STATE.players].sort((a, b) => {
+        let idxA = ROLE_SORT_ORDER.indexOf(a.role || 'village');
+        let idxB = ROLE_SORT_ORDER.indexOf(b.role || 'village');
+        if (idxA === -1) idxA = 999;
+        if (idxB === -1) idxB = 999;
+        if (idxA !== idxB) return idxA - idxB;
+        return STATE.players.indexOf(a) - STATE.players.indexOf(b);
+      });
+    }
+  }
+  
+  return STATE.players;
+}
 
-      STATE.players.forEach(p => {
-        let btn = document.createElement('div');
-        btn.className = 'grid-btn';
-        if (p.isDead) btn.classList.add('dead');
-        if (STATE.selectedTargets.includes(p.id)) btn.classList.add('selected');
+function renderGrid(revealAll) {
+  const grid = document.getElementById('panel-grid');
+  grid.innerHTML = '';
+  let phase = getCurrentPhaseData();
+
+  getSortedPlayers().forEach(p => {
+    let btn = document.createElement('div');
+    btn.className = 'grid-btn';
+    if (p.isDead) btn.classList.add('dead');
+    if (STATE.selectedTargets.includes(p.id)) btn.classList.add('selected');
 
         // Dim players who are not valid for current selection
         if (phase.mapping) {
