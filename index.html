@@ -585,8 +585,19 @@ function init() {
     try { ROLE_PRESETS = JSON.parse(savedRolePresets); } catch(e){}
   }
   
-  if (Object.keys(STATE.setupPool).length === 0) {
-    for (let key in ROLES) STATE.setupPool[key] = 0;
+  if (!STATE.setupPool) {
+    STATE.setupPool = {};
+  }
+  // Clean up setupPool from any deleted/legacy roles, and ensure all current roles exist
+  for (let key in STATE.setupPool) {
+    if (!ROLES[key]) {
+      delete STATE.setupPool[key];
+    }
+  }
+  for (let key in ROLES) {
+    if (STATE.setupPool[key] === undefined) {
+      STATE.setupPool[key] = 0;
+    }
   }
   
   document.getElementById('lang-select').value = STATE.lang;
@@ -826,7 +837,19 @@ function deletePreset() {
 // --- GAME LOOP ---
 function startGame() {
   let totalRoles = Object.values(STATE.setupPool).reduce((a,b)=>a+b,0);
-  if (totalRoles > STATE.setupNames.length) return showAlert("Notice", "More roles than players!");
+  if (totalRoles !== STATE.setupNames.length) {
+    if (totalRoles > STATE.setupNames.length) {
+      return showAlert(
+        STATE.lang === 'vi' ? "Lỗi" : "Error",
+        STATE.lang === 'vi' ? `Có nhiều vai trò hơn người chơi! (${totalRoles} vai trò, ${STATE.setupNames.length} người)` : `More roles than players! (${totalRoles} roles, ${STATE.setupNames.length} players)`
+      );
+    } else {
+      return showAlert(
+        STATE.lang === 'vi' ? "Lỗi" : "Error",
+        STATE.lang === 'vi' ? `Có ít vai trò hơn người chơi! (${totalRoles} vai trò, ${STATE.setupNames.length} người)` : `Fewer roles than players! (${totalRoles} roles, ${STATE.setupNames.length} players)`
+      );
+    }
+  }
   
   pushUndo();
   STATE.gameStarted = true;
