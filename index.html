@@ -358,7 +358,7 @@ const ROLES = {
   wolf_cub: { en: "Wolf Cub", vi: "Sói trẻ", score: -8, team: "wolf", emoji: "🐺🐾", recognitionOnly: true },
   wolf_man: { en: "Wolf Man", vi: "Người sói", score: -9, team: "wolf", emoji: "👤🐺", recognitionOnly: true },
   alpha_wolf: { en: "Alpha Wolf", vi: "Sói đầu đàn", score: -9, team: "wolf", emoji: "🐺👑" },
-  beholder: { en: "Beholder", vi: "Kẻ si tình", score: 2, team: "village", emoji: "🤩", recognitionOnly: true },
+  beholder: { en: "Beholder", vi: "Kẻ si tình", score: 2, team: "village", emoji: "🤩" },
   priest: { en: "Priest", vi: "Mục sư", score: 3, team: "village", emoji: "🙏" },
   chupacabra: { en: "Chupacabra", vi: "Quỷ hút máu", score: 4, team: "neutral", emoji: "🧛‍♂️" },
   lone_wolf: { en: "Lone Wolf", vi: "Sói đơn độc", score: -5, team: "wolf", emoji: "🐺🕶️", recognitionOnly: true },
@@ -381,7 +381,8 @@ const I18N = {
     wake_spellcaster: "Spellcaster, wake up. Choose one person to silence for tomorrow morning.",
     wake_werewolves_group: "Werewolves, wake up. Choose your victim.",
     wake_witch: "Witch, wake up. These players will die tonight {names}. Will you use your healing potion or your poison tonight?",
-    wake_seer: "Seer and Beholder, wake up. Seer, choose one person to inspect. Beholder, see the Seer and their sighting. Nod is wolf, shake is not wolf. [Result: {res}]",
+    wake_seer: "Seer, wake up. Choose one person to inspect. Nod is wolf, shake is not wolf. [Result: {res}]",
+    wake_beholder: "Beholder, wake up. Seer, please raise your hand so the Beholder knows who you are. Beholder, see the Seer and their first sighting.",
     wake_huntress: "Huntress, wake up. You have one shot. Will you use it tonight to kill a player?",
     wake_revealer: "Revealer, wake up. You may choose one person to reveal. If they are a wolf, they die. If they are not, you die.",
     wake_alpha_wolf: "Alpha Wolf, wake up. You may choose one villager to secretly convert to your side tonight.",
@@ -444,7 +445,8 @@ const I18N = {
     wake_spellcaster: "Pháp sư câm, hãy thức dậy. Chọn một người để khóa miệng.",
     wake_werewolves_group: "Ma sói, hãy thức dậy. Chọn nạn nhân của các bạn.",
     wake_witch: "Phù thủy, hãy thức dậy. Sắp chết: {names}. Dùng thuốc?",
-    wake_seer: "Tiên tri và Kẻ si tình, thức dậy. Tiên tri soi một người. Kẻ si tình, hãy nhìn Tiên tri. [Kết quả: {res}]",
+    wake_seer: "Tiên tri, thức dậy. Tiên tri soi một người. [Kết quả: {res}]",
+    wake_beholder: "Kẻ si tình, thức dậy. Tiên tri hãy giơ tay để Kẻ si tình nhận biết. Kẻ si tình, nhìn Tiên tri và lượt soi đầu tiên.",
     wake_huntress: "Nữ thợ săn, thức dậy. Bạn có muốn bắn không?",
     wake_revealer: "Người khám phá, thức dậy. Lật mặt một người.",
     wake_alpha_wolf: "Sói đầu đàn, thức dậy. Chọn một dân làng để bí mật chuyển sang phe sói.",
@@ -839,7 +841,7 @@ const PHASE_ORDER = [
     { role: 'apprentice_seer',  map: true,  power: false },
     { role: 'bodyguard',        map: true,  power: true  },
     { role: 'priest',           map: true,  power: true  },
-    { role: 'beholder',         map: true,  power: false },
+    { role: 'beholder',         map: true,  power: true  },
     { role: 'vampire',          map: true,  power: true  },
     { role: 'chupacabra',       map: true,  power: true  },
     { role: 'werewolves_group', map: true,  power: true,  displayName: 'Werewolves' },
@@ -976,12 +978,7 @@ function getCurrentPhaseData() {
 
       // ── Power step ─────────────────────────────────────────────────────────
       if (step.power && !STATE.powerDone) {
-        // Skip power step if the role's player is dead (prevents stuck UI for seer/revealer)
-        if (!['werewolves_group', 'bloody_mary_revenge'].includes(step.role)) {
-          const rolePlayer = STATE.players.find(p => p.role === step.role && !p.isDead);
-          if (!rolePlayer) { stepIdx++; continue; }
-        }
-
+        // Critical fix: The dialogue for calling characters should remain no matter if they are alive or not.
         let displayName = step.displayName || getRoleName(step.role);
         let instruction = '';
         if (step.role === 'cupid')                   instruction = 'Select 2 players to be Lovers';
@@ -1001,6 +998,7 @@ function getCurrentPhaseData() {
         else if (step.role === 'chupacabra')         instruction = 'Select 1 player to hunt';
         else if (step.role === 'vampire')            instruction = 'Select 1 player to die tomorrow night';
         else if (step.role === 'bloody_mary_revenge') instruction = 'Select 1 victim for revenge';
+        else if (step.role === 'beholder')           instruction = 'Acknowledge Beholder sighting (Press Confirm to continue)';
 
         return {
           type: 'night', role: step.role, mapping: false,
@@ -1474,6 +1472,10 @@ function confirmAction() {
         return showToast('Select 1 player to bless.');
     }
   }
+  else if (r === 'beholder') {
+    // Beholder does not target anyone, just press Confirm to acknowledge
+    actionTaken = true;
+  }
   else if (r === 'chupacabra') {
     if (STATE.selectedTargets.length === 1) {
       if (actor) {
@@ -1822,7 +1824,7 @@ function updatePanel() {
     } else {
       banner.classList.add('d-none');
       let wakeKey = 'wake_' + phase.role;
-      let wakeText = t(wakeKey) || t('wake_gen', {role: getRoleName(phase.role)});
+      let wakeText = (phase.role ? (t(wakeKey) || t('wake_gen', {role: getRoleName(phase.role)})) : "");
       quoteEl.innerText = wakeText;
       if (phase.role === 'witch') {
         // Witch sees only actual imminent deaths for this night (not protected, not hidden).
