@@ -409,6 +409,8 @@ const I18N = {
     hist_manual_override: "Manual override: {name} is now {state}.",
     hist_protected: "{name} was protected from attack.",
     hist_wolves_targeted: "Werewolves targeted {name}.",
+    hist_wolves_no_action_dead: "Werewolves did not attack (all wolves are dead).",
+    hist_wolves_no_action_brute: "Werewolves did not attack (Fruit Brute is vegetarian and the only wolf left).",
     hist_alpha_convert_success: "Werewolves converted {name} into a Werewolf.",
     hist_alpha_convert_fail_protected: "Alpha conversion FAILED on {name} (protected).",
     hist_alpha_convert_fail_cupid_kill_protected: "Alpha conversion->kill FAILED on {name} (protected).",
@@ -474,6 +476,8 @@ const I18N = {
     hist_manual_override: "Can thiệp thủ công: {name} hiện đang {state}.",
     hist_protected: "{name} đã được bảo vệ khỏi tấn công.",
     hist_wolves_targeted: "Ma sói nhắm vào {name}.",
+    hist_wolves_no_action_dead: "Ma sói không thể tấn công (tất cả ma sói đã chết).",
+    hist_wolves_no_action_brute: "Ma sói không thể tấn công (Sói ăn chay đang là con sói duy nhất còn sống).",
     hist_alpha_convert_success: "{name} đã bị chuyển thành Ma sói.",
     hist_alpha_convert_fail_protected: "Chuyển phe thất bại với {name} (được bảo vệ).",
     hist_alpha_convert_fail_cupid_kill_protected: "Chuyển phe→giết thất bại với {name} (được bảo vệ).",
@@ -1060,9 +1064,23 @@ function getCurrentPhaseData() {
         else if (step.role === 'dire_wolf')          instruction = "Select 1 non-wolf player to be Dire Wolf's lover";
         else if (step.role === 'spellcaster')        instruction = 'Select 1 player to silence';
         else if (step.role === 'werewolves_group') {
-          const alphaAlive = STATE.players.some(p => p.role === 'alpha_wolf' && !p.isDead);
-          const doConvert = STATE.alphaWolfTriggered && !STATE.alphaWolfUsed && alphaAlive;
-          instruction = doConvert ? 'Werewolves — select 1 player to CONVERT tonight' : 'Werewolves — select 1 victim to kill';
+          let aliveWolves = STATE.players.filter(x => !x.isDead && (ROLES[x.role]?.team === 'wolf' || x.role === 'wolf_pending'));
+          let anyWolfAlive = aliveWolves.length > 0;
+          let fruitBruteOnly = (aliveWolves.length === 1 && aliveWolves[0].role === 'fruit_brute');
+
+          if (!anyWolfAlive) {
+            instruction = STATE.lang === 'vi' ? 'Tất cả Ma sói đã chết. Nhấn Xác nhận để tiếp tục.' : 'All wolves are dead. Press Confirm to continue.';
+          } else if (fruitBruteOnly) {
+            instruction = STATE.lang === 'vi' ? 'Sói ăn chay là con sói duy nhất còn sống và không thể chọn giết ai. Nhấn Xác nhận để tiếp tục.' : 'Fruit Brute is the only wolf left and cannot kill. Press Confirm to continue.';
+          } else {
+            const alphaAlive = STATE.players.some(p => p.role === 'alpha_wolf' && !p.isDead);
+            const doConvert = STATE.alphaWolfTriggered && !STATE.alphaWolfUsed && alphaAlive;
+            if (doConvert) {
+              instruction = STATE.lang === 'vi' ? 'Ma sói — chọn 1 người chơi để THU PHỤC đêm nay' : 'Werewolves — select 1 player to CONVERT tonight';
+            } else {
+              instruction = STATE.lang === 'vi' ? 'Ma sói — chọn 1 nạn nhân để tiêu diệt' : 'Werewolves — select 1 victim to kill';
+            }
+          }
         }
         else if (step.role === 'witch')              instruction = 'Select 1 player to poison (Confirm with no target to skip)';
         else if (step.role === 'seer')               instruction = 'Select 1 player to inspect';
@@ -1337,6 +1355,10 @@ function confirmAction() {
     if (stepDef && !stepDef.power) {
       STATE.phaseStep = phase.currentStep + 1;
     }
+    // If we've reached the end of the night, transition to sunrise
+    if (getCurrentPhaseData().type === 'end_night') {
+      processNightEnd();
+    }
     // If role has power, stay — the power prompt shows next
     saveState();
     return;
@@ -1458,68 +1480,80 @@ function confirmAction() {
     }
   }
   else if (r === 'werewolves_group') {
+    let aliveWolves = STATE.players.filter(x => !x.isDead && (ROLES[x.role]?.team === 'wolf' || x.role === 'wolf_pending'));
+    let anyWolfAlive = aliveWolves.length > 0;
+    let fruitBruteOnly = (aliveWolves.length === 1 && aliveWolves[0].role === 'fruit_brute');
+
     if (STATE.selectedTargets.length === 1) {
-      let anyWolfAlive = STATE.players.some(p =>
-        !p.isDead && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')
-      );
-      if (anyWolfAlive) {
-        let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
-        const alphaAlive = STATE.players.some(x => x.role === 'alpha_wolf' && !x.isDead);
-        const doConvert = STATE.alphaWolfTriggered && !STATE.alphaWolfUsed && alphaAlive;
+      if (!anyWolfAlive) {
+        showIllegalAction(STATE.lang === 'vi' ? "Tất cả ma sói đã chết, không thể chọn giết ai!" : "All wolves are dead, cannot select a victim!");
+        return;
+      }
+      if (fruitBruteOnly) {
+        showIllegalAction(STATE.lang === 'vi' ? "Sói ăn chay (Fruit Brute) đang là con sói duy nhất còn sống, không thể chọn giết ai!" : "Fruit Brute is the only wolf left and cannot kill anyone!");
+        return;
+      }
 
-        if (doConvert) {
-          if (p && p.role && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')) {
-            showIllegalAction(STATE.lang === 'vi' ? "Phải chọn người chơi không thuộc phe Sói để thu phục!" : "Must select a non-wolf player.");
-            return;
-          }
+      let p = STATE.players.find(x=>x.id===STATE.selectedTargets[0]);
+      const alphaAlive = STATE.players.some(x => x.role === 'alpha_wolf' && !x.isDead);
+      const doConvert = STATE.alphaWolfTriggered && !STATE.alphaWolfUsed && alphaAlive;
 
-          STATE.alphaWolfUsed = true;
-          STATE.alphaWolfTriggered = false;
+      if (doConvert) {
+        if (p && p.role && (ROLES[p.role]?.team === 'wolf' || p.role === 'wolf_pending')) {
+          showIllegalAction(STATE.lang === 'vi' ? "Phải chọn người chơi không thuộc phe Sói để thu phục!" : "Must select a non-wolf player.");
+          return;
+        }
 
-          const blockedByCupid = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
-          const blockedPrince = p && p.role === 'prince' && p.princeRevealed;
+        STATE.alphaWolfUsed = true;
+        STATE.alphaWolfTriggered = false;
 
-          if (blockedByCupid) {
-            if (p && p.protected) {
-              addHistoryT("wolf", "hist_alpha_convert_fail_cupid_kill_protected", { name: p.name });
-            } else if (p) {
-              addHistoryT("wolf", "hist_alpha_convert_hit_cupid_kill", { name: p.name });
-              STATE.nightDeaths.push({ id: p.id, source: 'wolf' });
-            }
-          } else if (blockedPrince) {
-            addHistoryT("wolf", "hist_alpha_convert_fail_revealed_prince", { name: p.name });
-          } else if (p && p.protected) {
-            addHistoryT("wolf", "hist_alpha_convert_fail_protected", { name: p.name });
+        const blockedByCupid = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
+        const blockedPrince = p && p.role === 'prince' && p.princeRevealed;
+
+        if (blockedByCupid) {
+          if (p && p.protected) {
+            addHistoryT("wolf", "hist_alpha_convert_fail_cupid_kill_protected", { name: p.name });
           } else if (p) {
-            p.alphaWolfConverted = true;
-            p.originalRole = p.originalRole || p.role;
-            p.role = 'werewolf';
-            p.icon = ROLES['werewolf'].emoji;
-            addHistoryT("wolf", "hist_alpha_convert_success", { name: p.name });
+            addHistoryT("wolf", "hist_alpha_convert_hit_cupid_kill", { name: p.name });
+            STATE.nightDeaths.push({ id: p.id, source: 'wolf' });
           }
+        } else if (blockedPrince) {
+          addHistoryT("wolf", "hist_alpha_convert_fail_revealed_prince", { name: p.name });
+        } else if (p && p.protected) {
+          addHistoryT("wolf", "hist_alpha_convert_fail_protected", { name: p.name });
+        } else if (p) {
+          p.alphaWolfConverted = true;
+          p.originalRole = p.originalRole || p.role;
+          p.role = 'werewolf';
+          p.icon = ROLES['werewolf'].emoji;
+          addHistoryT("wolf", "hist_alpha_convert_success", { name: p.name });
+        }
+      } else {
+        const isCupidTeam = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
+        if (p && p.role === 'cursed' && !p.cursedBitten && !p.protected && !isCupidTeam) {
+          p.cursedBitten = true;
+          p.originalRole = p.originalRole || 'cursed';
+          p.role = 'werewolf';
+          p.icon = ROLES['werewolf'].emoji;
+          addHistoryT("wolf", "hist_cursed_turn", { name: p.name });
         } else {
-          let aliveWolves = STATE.players.filter(x => !x.isDead && (ROLES[x.role]?.team === 'wolf' || x.role === 'wolf_pending'));
-          let fruitBruteOnly = (aliveWolves.length === 1 && aliveWolves[0].role === 'fruit_brute');
-          if (fruitBruteOnly) {
-            showIllegalAction(STATE.lang === 'vi' ? "Sói ăn chay (Fruit Brute) đang là con sói duy nhất còn sống, không thể chọn giết ai!" : "Fruit Brute is the only wolf left and cannot kill anyone!");
-            return;
-          }
-
-          const isCupidTeam = p && (p.role === 'cupid' || (p.lovers && p.lovers.length > 0));
-          if (p && p.role === 'cursed' && !p.cursedBitten && !p.protected && !isCupidTeam) {
-            p.cursedBitten = true;
-            p.originalRole = p.originalRole || 'cursed';
-            p.role = 'werewolf';
-            p.icon = ROLES['werewolf'].emoji;
-            addHistoryT("wolf", "hist_cursed_turn", { name: p.name });
-          } else {
-            addHistoryT("system", "hist_wolves_targeted", { name: p.name }, true);
-            const hideFromWitch = (p && p.role === 'tough_guy' && !p.toughGuyBitten);
-            STATE.nightDeaths.push({id: p.id, source: 'wolf', hiddenFromWitch: !!hideFromWitch});
-          }
+          addHistoryT("system", "hist_wolves_targeted", { name: p.name }, true);
+          const hideFromWitch = (p && p.role === 'tough_guy' && !p.toughGuyBitten);
+          STATE.nightDeaths.push({id: p.id, source: 'wolf', hiddenFromWitch: !!hideFromWitch});
         }
       }
       actionTaken = true;
+    } else if (STATE.selectedTargets.length === 0) {
+      if (!anyWolfAlive) {
+        addHistoryT("system", "hist_wolves_no_action_dead", {}, true);
+        actionTaken = true;
+      } else if (fruitBruteOnly) {
+        addHistoryT("system", "hist_wolves_no_action_brute", {}, true);
+        actionTaken = true;
+      } else {
+        showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 nạn nhân!" : "Select 1 victim.");
+        return;
+      }
     } else {
       showIllegalAction(STATE.lang === 'vi' ? "Vui lòng chọn đúng 1 nạn nhân!" : "Select 1 victim.");
       return;
